@@ -109,7 +109,7 @@ export function AppShell() {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="no-print fixed bottom-0 left-0 right-0 z-30 flex border-t border-line bg-surface/97 backdrop-blur lg:hidden">
+      <nav className="no-print fixed bottom-0 left-0 right-0 z-30 flex border-t border-line bg-surface/95 backdrop-blur lg:hidden">
         {NAV.map((item) => (
           <NavLink
             key={item.to}

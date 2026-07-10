@@ -15,7 +15,7 @@ export interface AsyncState<T> {
  */
 export function useAsync<T>(
   fetcher: () => Promise<T>,
-  deps: React.DependencyList = [],
+  deps: readonly unknown[] = [],
 ): AsyncState<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);

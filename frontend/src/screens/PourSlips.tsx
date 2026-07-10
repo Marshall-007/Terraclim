@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAsync } from '../hooks/useApi';
@@ -101,7 +102,7 @@ function Slip({ block, s }: { block: BlockFeature['properties']; s: BlockStatus 
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
       <dt className="text-ink-muted">{label}</dt>

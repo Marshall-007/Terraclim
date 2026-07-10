@@ -62,7 +62,7 @@
 
   .field {
     @apply w-full rounded-md border border-line bg-raised px-3 py-2 text-sm text-ink
-      outline-none focus:border-bordeaux-soft focus:ring-2 focus:ring-bordeaux/15;
+      outline-none focus:border-bordeaux-soft focus:ring-2 focus:ring-bordeaux/20;
   }
 
   .eyebrow {
@@ -81,10 +81,10 @@
 .leaflet-control-attribution {
   background: rgba(251, 250, 246, 0.82) !important;
   font-size: 10px !important;
-  color: theme('colors.ink.muted') !important;
+  color: theme('colors.ink-muted') !important;
 }
 .leaflet-bar a {
-  color: theme('colors.ink.soft') !important;
+  color: theme('colors.ink-soft') !important;
   border-color: theme('colors.line') !important;
 }
 .leaflet-tooltip.vino-map-label {
@@ -94,7 +94,7 @@
   padding: 1px 8px;
   font-size: 11px;
   font-weight: 700;
-  color: theme('colors.ink.soft');
+  color: theme('colors.ink-soft');
   box-shadow: none;
   font-variant-numeric: tabular-nums;
 }

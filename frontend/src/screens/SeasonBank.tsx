@@ -214,7 +214,7 @@ export function SeasonBank() {
             <BurnDownChart data={bankQ.data} />
           </Section>
 
-          <div className="rounded-lg border border-slate/15 bg-slate-tint px-5 py-4">
+          <div className="rounded-lg border border-slate/20 bg-slate-tint px-5 py-4">
             <div className="eyebrow mb-1.5 text-slate">Advice</div>
             <p className="text-sm leading-relaxed text-ink">{bankQ.data.advice}</p>
           </div>
