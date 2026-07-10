@@ -119,30 +119,37 @@ def _detect_heat_spikes(window_dates, farm_tmax, per_block, idx_by_date) -> list
     return events
 
 
+STRESS_SWING = 0.15        # dryward jump in depletion fraction that marks heat stress
+PROJECTED_SWING = 0.12     # forward-projected jump that counts as an early warning
+
+
 def _build_event(peak: date, farm_tmax, per_block, idx_by_date) -> dict:
     pi = idx_by_date[peak]
     flagged: list[str] = []
+    breached_any = False
     best_lead = 0
     headline_block: str | None = None
 
     for bid, rows in per_block.items():
-        # Flagged if out of band at the spike or in the two days around it.
-        window_status = any(
-            rows[j]["status"] == "too_dry"
-            for j in range(max(0, pi - 1), min(len(rows), pi + 2))
-        )
-        if not window_status:
+        n = len(rows)
+        pre = min(r["f"] for r in rows[max(0, pi - 2):pi + 1])
+        post_slice = rows[pi:min(n, pi + 5)]
+        post = max(r["f"] for r in post_slice)
+        breached = any(r["status"] == "too_dry" for r in post_slice)
+        # A block is flagged if the heat drove a sharp dryward swing or a band breach.
+        if not (breached or (post - pre) >= STRESS_SWING):
             continue
         flagged.append(bid)
+        breached_any = breached_any or breached
 
+        # Lead: earliest day the 7-day forward projection already saw the swing coming.
         lead = 0
         for back in range(1, LEAD_LOOKBACK_DAYS + 1):
             di = pi - back
             if di < 0:
                 break
-            j = min(di + FORWARD_HORIZON, len(rows) - 1)
-            projected_breach = rows[j]["f"] > rows[di]["hi"]
-            if projected_breach:
+            j = min(di + FORWARD_HORIZON, n - 1)
+            if rows[j]["f"] - rows[di]["f"] >= PROJECTED_SWING or rows[j]["f"] > rows[di]["hi"]:
                 lead = back
         if lead > best_lead:
             best_lead = lead
@@ -152,13 +159,14 @@ def _build_event(peak: date, farm_tmax, per_block, idx_by_date) -> dict:
         headline_block = flagged[0]
 
     peak_temp = round(farm_tmax[peak])
-    if headline_block:
+    if not flagged:
+        narrative = f"{peak_temp}°C heat spike; managed irrigation held all blocks in band."
+    else:
+        verb = "breaching its band" if breached_any else "stress climbing toward its band edge"
         narrative = (
-            f"Engine projected {headline_block} breaching its band {best_lead} days "
+            f"Engine projected {headline_block} {verb} {best_lead} days "
             f"before the {peak_temp}°C spike."
         )
-    else:
-        narrative = f"{peak_temp}°C heat spike; all blocks held inside their bands."
 
     return {
         "date": peak.isoformat(),
