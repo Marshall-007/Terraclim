@@ -1,0 +1,9 @@
+{
+  "dormant": 0.15,
+  "budbreak": 0.30,
+  "flowering": 0.45,
+  "fruit_set": 0.60,
+  "veraison": 0.70,
+  "harvest": 0.55,
+  "post_harvest": 0.40
+}

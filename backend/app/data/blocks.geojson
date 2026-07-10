@@ -1,0 +1,278 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              18.857277,
+              -33.928558
+            ],
+            [
+              18.859723,
+              -33.928558
+            ],
+            [
+              18.859723,
+              -33.927442
+            ],
+            [
+              18.857277,
+              -33.927442
+            ],
+            [
+              18.857277,
+              -33.928558
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "B1",
+        "name": "Bosberg Cabernet",
+        "variety": "Cabernet Sauvignon",
+        "wine_style": "premium_red",
+        "area_ha": 2.8,
+        "application_rate_mm_h": 2.0,
+        "taw_mm": 120
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              18.864893,
+              -33.931397
+            ],
+            [
+              18.867507,
+              -33.931397
+            ],
+            [
+              18.867507,
+              -33.930203
+            ],
+            [
+              18.864893,
+              -33.930203
+            ],
+            [
+              18.864893,
+              -33.931397
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "B2",
+        "name": "Skaliekop Shiraz",
+        "variety": "Shiraz",
+        "wine_style": "premium_red",
+        "area_ha": 3.2,
+        "application_rate_mm_h": 1.8,
+        "taw_mm": 120
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              18.872041,
+              -33.929584
+            ],
+            [
+              18.874159,
+              -33.929584
+            ],
+            [
+              18.874159,
+              -33.928616
+            ],
+            [
+              18.872041,
+              -33.928616
+            ],
+            [
+              18.872041,
+              -33.929584
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "B3",
+        "name": "Rivierkant Merlot",
+        "variety": "Merlot",
+        "wine_style": "red",
+        "area_ha": 2.1,
+        "application_rate_mm_h": 2.2,
+        "taw_mm": 120
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              18.878619,
+              -33.933648
+            ],
+            [
+              18.880581,
+              -33.933648
+            ],
+            [
+              18.880581,
+              -33.932752
+            ],
+            [
+              18.878619,
+              -33.932752
+            ],
+            [
+              18.878619,
+              -33.933648
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "B4",
+        "name": "Windberg Pinotage",
+        "variety": "Pinotage",
+        "wine_style": "red",
+        "area_ha": 1.8,
+        "application_rate_mm_h": 2.0,
+        "taw_mm": 110
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              18.859313,
+              -33.940733
+            ],
+            [
+              18.862087,
+              -33.940733
+            ],
+            [
+              18.862087,
+              -33.939467
+            ],
+            [
+              18.859313,
+              -33.939467
+            ],
+            [
+              18.859313,
+              -33.940733
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "B5",
+        "name": "Kloofstroom Chenin",
+        "variety": "Chenin Blanc",
+        "wine_style": "white",
+        "area_ha": 3.6,
+        "application_rate_mm_h": 2.4,
+        "taw_mm": 130
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              18.868168,
+              -33.944017
+            ],
+            [
+              18.870432,
+              -33.944017
+            ],
+            [
+              18.870432,
+              -33.942983
+            ],
+            [
+              18.868168,
+              -33.942983
+            ],
+            [
+              18.868168,
+              -33.944017
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "B6",
+        "name": "Môrelig Sauvignon",
+        "variety": "Sauvignon Blanc",
+        "wine_style": "fresh_white",
+        "area_ha": 2.4,
+        "application_rate_mm_h": 2.4,
+        "taw_mm": 120
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              18.876192,
+              -33.94666
+            ],
+            [
+              18.878208,
+              -33.94666
+            ],
+            [
+              18.878208,
+              -33.94574
+            ],
+            [
+              18.876192,
+              -33.94574
+            ],
+            [
+              18.876192,
+              -33.94666
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "B7",
+        "name": "Leiwater Chardonnay",
+        "variety": "Chardonnay",
+        "wine_style": "white",
+        "area_ha": 1.9,
+        "application_rate_mm_h": 2.2,
+        "taw_mm": 120
+      }
+    }
+  ]
+}
