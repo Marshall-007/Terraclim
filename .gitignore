@@ -25,6 +25,14 @@ yarn-error.log*
 # Backend runtime data (keep seed irrigation_log.json tracked so the app runs on a fresh clone)
 backend/app/data/cache/*
 !backend/app/data/cache/.gitkeep
+backend/app/data/settings.json
+
+# TerraClim ET-GEO data pack — confidential per hackathon IP notice, never commit
+backend/app/data/datapack/
+datapack/
+*.tif
+*.tiff
+*.nc
 
 # OS / editor
 .DS_Store

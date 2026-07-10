@@ -90,6 +90,39 @@ Accepted changes from the red-team review (`docs/RED_TEAM.md`), to be applied to
 
 **Demo tie-in:** this replaces the killed "env var flip" line with something better and *live*: open Settings on stage, paste the token TerraClim hands out, press Activate — the header badge flips to "Data: TerraClim" in front of the judges.
 
+## R12 — ETa channel + NDVI: align the engine to the ET-GEO data pack (CRITICAL, from official brief)
+
+**Problem:** The brief judges "ETo **and ETa** per block, per day" plus Kc and **NDVI** at block level. Our engine models ETc = ET0 × Kc but has no channel for *measured* actual ET (their random-forest ETa output) or Sentinel-2 vigour.
+
+**Fix:**
+- Extend `DailyWeather`/engine with optional `eta_measured` and `ndvi`. When the data pack provides ETa, the water balance consumes it directly; modelled ETc×Ks remains the forecast/gap-fill layer (satellite ETa is retrospective — our forecast remains the differentiator, now anchored to their measured history).
+- **ETa vs ETc divergence becomes a first-class stress signal**: ETa falling below modelled ETc means the vines are already throttling — surface it as a driver ("vines transpiring 18% below expectation").
+- Kc from NDVI when vigour data exists (literature Kc–NDVI relation for vineyards), falling back to stage-based Kc.
+- Dashboard block detail shows ETo, ETa, Kc, NDVI per day — the brief's exact checklist.
+
+## R13 — Validation view as a first-class screen (CRITICAL, from official brief)
+
+**Problem:** The brief explicitly judges a "validation view — make WaPOR, FruitLook and stem water potential checks visible enough to build trust." We had validation scattered (backtest, MSWP language R3).
+
+**Fix:** A dedicated **Validate** screen per block: model depletion/ETa series overlaid with WaPOR/FruitLook reference series (from the data pack) + entered pressure-bomb readings; agreement stats (bias, RMSE, within-band %); a "log a pressure-bomb reading" form that both plots the reading against the model and (R3) anchors calibration. The backtest (R2) lives here as the "would it have caught it" tab. This screen is the scientific-credibility centerpiece for Prof. van Niekerk.
+
+## R14 — DataPackProvider with raster zonal statistics (CRITICAL, from official brief)
+
+**Problem:** We assumed a REST API. The brief says entrants get a **curated data pack** (10 m daily ETo raster surfaces, Sentinel-2 vigour, Kc/phenology records, RF ETa outputs) — files, not endpoints.
+
+**Fix:** Add `DataPackProvider` as a third provider: reads a local folder (`backend/app/data/datapack/`, gitignored), performs **zonal statistics over the real traced block polygons** (rasterio + shapely) for ETo/ETa/NDVI rasters, and serves the same `DailyWeather`+extras interface. Settings panel (R11) gains "Load data pack" (point at folder / upload) alongside the API option. Adapter shapes for CSV/GeoTIFF/NetCDF decided on Day 0 when we see the pack — the provider seam is ready either way.
+
+## R15 — IP compliance: data pack never leaves the machine (CRITICAL, legal)
+
+Per the brief's data notice: TerraClim data, starter files and credentials may not be copied, published or redistributed. **Rules:** `backend/app/data/datapack/` is gitignored; no TerraClim rasters/CSVs/credentials ever committed; keep the GitHub repo private through the hackathon; demo screenshots of TerraClim-derived layers are fine (that's the judged product) but raw data files are not shared.
+
+## R16 — Align demo and scope priority to the official run of show (HIGH)
+
+- Demo script: retime to **5 minutes + 3-minute Q&A** (was 4). Q&A prep already exists (JUDGE_QA.md).
+- **Scope priority reordered — brief-core first, bulletproof:** (1) field/day dashboard with ETo/ETa/Kc/NDVI, (2) irrigate/hold/how-much recommendations, (3) depletion-ranked stress alerts, (4) validation view. Our over-delivery layer (Battle Plan, Season Bank, Field Mode, glide path/RDI framing) demos ONLY after the core four are flawless — they are the winning margin, not the foundation.
+- Build days mapped to their run of show: Fri = render ETo/ETa + vigour + stress logic on the real data pack; Sat = recommendation engine + validation panel + alerts + polish; Sun = demo.
+- "Handover-ready" is a judged criterion (Mbulelo): clean README, .env.example, architecture doc, one-command run. Treat repo quality as a feature.
+
 ---
 
 ### Application order
