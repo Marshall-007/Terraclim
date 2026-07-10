@@ -47,8 +47,9 @@ def synthetic_daily(lat: float, lon: float, d: date) -> DailyWeather:
     tmin = tmax - diurnal
     tmean = (tmax + tmin) / 2
 
-    # ET0 tracks temperature/season; nudged up during the heat spike.
-    et0 = 3.4 + 2.9 * phase + 0.6 * jitter + 0.06 * spike
+    # ET0 tracks temperature/season and surges during the heat spike (hot, dry air
+    # drives evapotranspiration up — the mechanism the backtest is meant to catch).
+    et0 = 3.4 + 2.9 * phase + 0.6 * jitter + 0.35 * spike
     et0 = max(0.4, et0)
 
     # Rain: rare and light in summer, frequent and heavier in winter.
