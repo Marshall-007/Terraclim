@@ -384,8 +384,10 @@ export function BlockMap({
   };
 
   return (
+    // isolate contains Leaflet's high pane z-indexes so app overlays
+    // (detail panel, mobile More sheet) always stack above the map.
     <div
-      className={`relative overflow-hidden rounded-lg border border-line ${
+      className={`relative isolate z-0 overflow-hidden rounded-lg border border-line ${
         tracing && !formOpen ? 'vino-tracing' : ''
       } ${className}`}
     >

@@ -261,7 +261,9 @@ export function Settings() {
   const settingsQ = useAsync(() => api.getSettings(), []);
   const s = settingsQ.data;
 
-  if (settingsQ.loading) {
+  // Keep the screen mounted through refetches (useAsync retains previous
+  // data), so activation/refresh feedback isn't wiped by its own onChanged.
+  if (settingsQ.loading && !s) {
     return (
       <div className="card">
         <LoadingPanel label="Reading data-source status" />
@@ -333,7 +335,7 @@ export function Settings() {
       <CacheSection onChanged={settingsQ.reload} />
 
       {/* demo date */}
-      <DemoDateSection key={s.as_of} settings={s} onChanged={settingsQ.reload} />
+      <DemoDateSection settings={s} onChanged={settingsQ.reload} />
 
       {/* current state readout */}
       <Section title="Data freshness">

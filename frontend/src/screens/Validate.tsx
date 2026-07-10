@@ -213,7 +213,8 @@ function ModelTab({ blockId }: { blockId: string }) {
       >
         <LogReadingForm
           blockId={blockId}
-          defaultDate={statusQ.data?.as_of ?? v.model_series.at(-1)?.date ?? ''}
+          // model_series is guaranteed present here; statusQ may still be in flight.
+          defaultDate={v.model_series.at(-1)?.date ?? statusQ.data?.as_of ?? ''}
           onLogged={valQ.reload}
         />
       </Section>
