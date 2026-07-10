@@ -19,7 +19,15 @@ type IconName =
   | 'arrow-down'
   | 'check'
   | 'sun'
-  | 'refresh';
+  | 'refresh'
+  | 'validate'
+  | 'gear'
+  | 'camera'
+  | 'layers'
+  | 'polygon'
+  | 'trash'
+  | 'more'
+  | 'mountain';
 
 const PATHS: Record<IconName, JSX.Element> = {
   map: (
@@ -104,6 +112,60 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <path d="M20 11a8 8 0 1 0-.9 4.5" />
       <path d="M20 5v6h-6" />
+    </>
+  ),
+  validate: (
+    <>
+      <path d="M12 3 5 5.8v5.4c0 4.3 2.9 7.6 7 9.8 4.1-2.2 7-5.5 7-9.8V5.8L12 3Z" />
+      <path d="m8.8 12 2.2 2.2 4.2-4.6" />
+    </>
+  ),
+  gear: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2.8 13 5.4a7 7 0 0 1 2.4 1l2.6-1 1.6 2.8-2 2a7 7 0 0 1 0 3.6l2 2-1.6 2.8-2.6-1a7 7 0 0 1-2.4 1l-1 2.6h-2l-1-2.6a7 7 0 0 1-2.4-1l-2.6 1L2.4 15.8l2-2a7 7 0 0 1 0-3.6l-2-2L4 5.4l2.6 1a7 7 0 0 1 2.4-1l1-2.6h2Z" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="M4 7.5h3l1.6-2.3h6.8L17 7.5h3a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8.5a1 1 0 0 1 1-1Z" />
+      <circle cx="12" cy="13" r="3.4" />
+    </>
+  ),
+  layers: (
+    <>
+      <path d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z" />
+      <path d="m4.5 11.8-1.5.7 9 4.5 9-4.5-1.5-.7M4.5 16.3 3 17l9 4.5 9-4.5-1.5-.7" />
+    </>
+  ),
+  polygon: (
+    <>
+      <path d="M7 5.5 18 4l2.5 8.5L14 20l-9.5-3L7 5.5Z" />
+      <circle cx="7" cy="5.5" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="4" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="20.5" cy="12.5" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="14" cy="20" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="4.5" cy="17" r="1.4" fill="currentColor" stroke="none" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M4 6.5h16M9.5 6.5V4.8A1 1 0 0 1 10.5 4h3a1 1 0 0 1 1 .8v1.7" />
+      <path d="M6.5 6.5 7.5 20a1 1 0 0 0 1 .9h7a1 1 0 0 0 1-.9l1-13.5" />
+      <path d="M10 10.5v6M14 10.5v6" />
+    </>
+  ),
+  more: (
+    <>
+      <circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    </>
+  ),
+  mountain: (
+    <>
+      <path d="m3 18 6-10 4 6.5L15.5 11 21 18H3Z" />
+      <path d="M21 6.5h.01" />
     </>
   ),
 };

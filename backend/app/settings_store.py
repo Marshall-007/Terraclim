@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 
 log = logging.getLogger("vino.settings_store")
@@ -25,7 +26,11 @@ def save(updates: dict) -> dict:
     data = load()
     data.update({k: v for k, v in updates.items() if k in ALLOWED_KEYS})
     try:
-        STORE_PATH.write_text(json.dumps(data, indent=2))
+        # May hold a provider token: owner-only permissions, never world-readable.
+        fd = os.open(STORE_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+        os.chmod(STORE_PATH, 0o600)
     except OSError as exc:
         log.warning("settings persist failed: %s", exc)
     return data

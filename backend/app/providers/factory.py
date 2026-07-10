@@ -5,6 +5,7 @@ from datetime import date
 
 from .base import DailyWeather
 from .cache import CachedProvider, DiskCache
+from .datapack import DataPackProvider
 from .fixture import FixtureProvider
 from .open_meteo import OpenMeteoProvider
 from .terraclim import TerraClimProvider
@@ -17,11 +18,13 @@ class ResilientProvider:
     synthetic weather when the primary is unreachable. Guarantees the demo never
     surfaces an error screen even if the network or a token is unavailable."""
 
-    def __init__(self, primary_cached: CachedProvider, primary_name: str, terraclim_ready: bool):
+    def __init__(self, primary_cached: CachedProvider, primary_name: str, terraclim_ready: bool,
+                 datapack_loaded: bool = False):
         self._primary = primary_cached
         self._fallback = FixtureProvider()
         self.name = primary_name
         self.terraclim_ready = terraclim_ready
+        self.datapack_loaded = datapack_loaded
         self.using_fallback = False
 
     def get_daily(self, lat: float, lon: float, start: date, end: date) -> list[DailyWeather]:
@@ -45,23 +48,41 @@ class ResilientProvider:
             return self._fallback.get_forecast(lat, lon, days)
 
 
-def _select_primary(settings) -> tuple[object, str, bool]:
-    """Return (primary_provider, primary_name, terraclim_ready)."""
-    if settings.terraclim_token:
-        terra = TerraClimProvider(settings.terraclim_token)
-        if terra.ready:
-            return terra, terra.name, True
+def _select_primary(settings) -> tuple[object, str, bool, bool]:
+    """Return (primary_provider, name, terraclim_ready, datapack_loaded).
+
+    Preference order: the curated data pack (if loaded) -> TerraClim (if a token is
+    present and the adapter is ready) -> Open-Meteo. `settings.provider` forces a
+    specific choice when set (Settings panel); otherwise the order above applies.
+    Either way `datapack_loaded` / `terraclim_ready` are reported for the header."""
+    datapack = DataPackProvider()
+    terra = TerraClimProvider(settings.terraclim_token) if settings.terraclim_token else None
+    terra_ready = bool(terra and terra.ready)
+
+    forced = getattr(settings, "provider", "") or ""
+    if forced == "datapack" and datapack.loaded:
+        return datapack, datapack.name, terra_ready, True
+    if forced == "terraclim" and terra_ready:
+        return terra, terra.name, True, datapack.loaded
+    if forced == "open-meteo":
+        return OpenMeteoProvider(), OpenMeteoProvider.name, terra_ready, datapack.loaded
+
+    if datapack.loaded:
+        return datapack, datapack.name, terra_ready, True
+    if terra_ready:
+        return terra, terra.name, True, datapack.loaded
+    if terra is not None:
         log.info("TERRACLIM_TOKEN present but provider not ready; staying on Open-Meteo")
-        return OpenMeteoProvider(), OpenMeteoProvider.name, False
-    return OpenMeteoProvider(), OpenMeteoProvider.name, False
+    return OpenMeteoProvider(), OpenMeteoProvider.name, terra_ready, datapack.loaded
 
 
 def get_provider(settings) -> ResilientProvider:
+    cache = DiskCache(settings.cache_ttl_hours)
     if settings.force_fixture:
         fixture = FixtureProvider()
-        cache = DiskCache(settings.cache_ttl_hours)
         return ResilientProvider(CachedProvider(fixture, cache), fixture.name, False)
 
-    primary, name, terra_ready = _select_primary(settings)
-    cache = DiskCache(settings.cache_ttl_hours)
-    return ResilientProvider(CachedProvider(primary, cache), name, terra_ready)
+    primary, name, terra_ready, datapack_loaded = _select_primary(settings)
+    return ResilientProvider(
+        CachedProvider(primary, cache), name, terra_ready, datapack_loaded
+    )

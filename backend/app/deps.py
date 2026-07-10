@@ -18,6 +18,12 @@ def get_provider_dep() -> ResilientProvider:
     return provider_singleton()
 
 
+def reset_provider() -> ResilientProvider:
+    """Rebuild the provider after a runtime settings change (Settings panel)."""
+    provider_singleton.cache_clear()
+    return provider_singleton()
+
+
 def parse_as_of(as_of: str | None = Query(default=None)) -> date:
     if not as_of:
         return get_settings().demo_date
