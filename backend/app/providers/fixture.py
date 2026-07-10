@@ -66,6 +66,19 @@ def synthetic_daily(lat: float, lon: float, d: date) -> DailyWeather:
     wind = 9.0 + 6.0 * _unit_noise("wind", d.isoformat()) + 3.0 * max(0.0, phase)
     solar = max(2.0, 12.0 + 10.0 * phase + 2.0 * jitter)
 
+    # NDVI tracks canopy: high in summer full-leaf, low in winter dormancy.
+    ndvi = 0.42 + 0.30 * max(0.0, phase) + 0.05 * (jitter + site - 0.5)
+    ndvi = max(0.12, min(0.9, ndvi))
+
+    # Measured actual ET (retrospective satellite/RF product). A partially-covered
+    # vineyard transpires a fraction of ET0 scaled by canopy vigour; the heat spike
+    # throttles the vines (stomatal closure), so ETa dips below the model — the
+    # divergence the engine surfaces as a stress signal.
+    canopy_frac = 0.34 + 0.55 * ndvi
+    throttle = 1.0 - 0.06 * spike
+    eta = et0 * canopy_frac * throttle
+    eta = max(0.2, eta)
+
     return DailyWeather(
         date=d,
         et0=round(et0, 2),
@@ -75,6 +88,8 @@ def synthetic_daily(lat: float, lon: float, d: date) -> DailyWeather:
         rh_mean=round(rh, 1),
         wind_max=round(wind, 1),
         solar=round(solar, 1),
+        eta=round(eta, 2),
+        ndvi=round(ndvi, 3),
     )
 
 

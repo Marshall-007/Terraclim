@@ -5,7 +5,7 @@ from datetime import date
 from ..providers.base import DailyWeather
 from .phenology import gdd_increment, stage_after
 from .scoring import band_for, deviation_status
-from .water_balance import clamp, kc_for
+from .water_balance import clamp, effective_rain, kc_for, stress_coefficient
 
 HARVEST_GDD = 1600.0
 DEFAULT_HORIZON = 7

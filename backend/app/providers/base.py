@@ -8,13 +8,15 @@ from typing import Protocol, runtime_checkable
 @dataclass
 class DailyWeather:
     date: date
-    et0: float          # mm
+    et0: float          # mm — reference (FAO-56) evapotranspiration
     rain: float         # mm
     tmax: float         # °C
     tmin: float         # °C
     rh_mean: float | None = None    # %
     wind_max: float | None = None   # km/h
     solar: float | None = None      # MJ/m²
+    eta: float | None = None        # mm — measured actual ET (data pack), when available
+    ndvi: float | None = None       # Sentinel-2 canopy vigour, when available
 
     def to_dict(self) -> dict:
         return {
@@ -26,6 +28,8 @@ class DailyWeather:
             "rh_mean": self.rh_mean,
             "wind_max": self.wind_max,
             "solar": self.solar,
+            "eta": self.eta,
+            "ndvi": self.ndvi,
         }
 
     @classmethod
@@ -39,6 +43,8 @@ class DailyWeather:
             rh_mean=d.get("rh_mean"),
             wind_max=d.get("wind_max"),
             solar=d.get("solar"),
+            eta=d.get("eta"),
+            ndvi=d.get("ndvi"),
         )
 
 
