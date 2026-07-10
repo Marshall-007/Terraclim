@@ -70,14 +70,13 @@ def synthetic_daily(lat: float, lon: float, d: date) -> DailyWeather:
     ndvi = 0.42 + 0.30 * max(0.0, phase) + 0.05 * (jitter + site - 0.5)
     ndvi = max(0.12, min(0.9, ndvi))
 
-    # Measured actual ET (retrospective satellite/RF product). A partially-covered
-    # vineyard transpires a fraction of ET0 scaled by canopy vigour; the heat spike
-    # throttles the vines (stomatal closure), so ETa dips below the model — the
-    # divergence the engine surfaces as a stress signal.
-    canopy_frac = 0.34 + 0.55 * ndvi
-    throttle = 1.0 - 0.06 * spike
-    eta = et0 * canopy_frac * throttle
-    eta = max(0.2, eta)
+    # Measured actual ET (retrospective satellite/RF product). A drip/RDI vineyard
+    # transpires below its unstressed potential (ET0 x Kc): ETa tracks canopy vigour
+    # as a fraction of ET0, so it rises with the heat spike (more demand, water
+    # permitting) yet stays below the model's potential ETc — the transpiration
+    # deficit the engine surfaces. Soil-water throttling is the balance's Ks job.
+    canopy_frac = 0.26 + 0.44 * ndvi
+    eta = max(0.2, et0 * canopy_frac)
 
     return DailyWeather(
         date=d,

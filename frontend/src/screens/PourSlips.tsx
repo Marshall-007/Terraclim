@@ -7,7 +7,7 @@ import { PageHeader } from '../components/common/primitives';
 import { LoadingPanel, ErrorState } from '../components/common/states';
 import { Icon } from '../components/layout/icons';
 import { stageLabel, styleLabel } from '../lib/status';
-import { fmtFraction, fmtFullDate, fmtMm } from '../lib/format';
+import { fmtFraction, fmtFullDate, fmtMm, fmtMpa, fmtMpaBand } from '../lib/format';
 import { color } from '../theme/tokens';
 
 function buildWhatsApp(block: BlockFeature['properties'], s: BlockStatus): string {
@@ -25,6 +25,13 @@ function buildWhatsApp(block: BlockFeature['properties'], s: BlockStatus): strin
           `Stage ${stageLabel(s.stage)} · depletion ${fmtFraction(s.depletion_fraction)} (band ${s.target_band[0].toFixed(2)}-${s.target_band[1].toFixed(2)})`,
           `Next check ${s.pour_slip.next_check}`,
         ];
+  if (s.mswp_estimate_mpa != null && s.mswp_band_mpa) {
+    lines.splice(
+      3,
+      0,
+      `MSWP (modelled) ${fmtMpa(s.mswp_estimate_mpa)} · target ${fmtMpaBand(s.mswp_band_mpa)}`,
+    );
+  }
   return `https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`;
 }
 
@@ -85,6 +92,11 @@ function Slip({ block, s }: { block: BlockFeature['properties']; s: BlockStatus 
             {fmtFraction(s.depletion_fraction)} / {s.target_band[0].toFixed(2)}–
             {s.target_band[1].toFixed(2)}
           </Row>
+          {s.mswp_estimate_mpa != null && s.mswp_band_mpa && (
+            <Row label="MSWP (modelled)">
+              ≈ {fmtMpa(s.mswp_estimate_mpa)} · target {fmtMpaBand(s.mswp_band_mpa)}
+            </Row>
+          )}
           <Row label="Status">{s.status.replace('_', ' ')}</Row>
           <Row label="Next check">{s.pour_slip.next_check}</Row>
         </dl>

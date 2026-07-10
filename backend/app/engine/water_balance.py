@@ -50,6 +50,7 @@ class BalanceDay:
     depletion_mm: float
     depletion_fraction: float
     stage: str
+    etc_potential: float = 0.0       # unstressed crop demand (ET0 x Kc), for ETa divergence
     eta: float | None = None         # measured actual ET, when the source provides it
     ndvi: float | None = None
 
@@ -77,7 +78,8 @@ def compute_balance(
         stage = stage_by_date.get(w.date, "dormant")
         kc = kc_for(kc_curves, stage)
         ks = stress_coefficient(depletion, taw)
-        etc = w.et0 * kc * ks
+        etc_potential = w.et0 * kc          # unstressed crop demand (ET0 x Kc)
+        etc = etc_potential * ks            # stress-adjusted actual model ET
         consumed = w.eta if w.eta is not None else etc
         irr = irrigation_by_date.get(w.date, 0.0)
         depletion = clamp(depletion + consumed - effective_rain(w.rain) - irr, 0.0, taw)
@@ -86,6 +88,7 @@ def compute_balance(
                 date=w.date,
                 et0=round(w.et0, 2),
                 etc=round(etc, 2),
+                etc_potential=round(etc_potential, 2),
                 rain=round(w.rain, 1),
                 irrigation_mm=round(irr, 1),
                 depletion_mm=round(depletion, 1),

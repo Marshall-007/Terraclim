@@ -358,9 +358,11 @@ def _measured_channels(balance: list[BalanceDay]):
         latest_ndvi = next((bd.ndvi for bd in reversed(balance) if bd.ndvi is not None), None)
         return None, latest_ndvi, None
     eta_7d = sum(bd.eta for bd in last7) / len(last7)
-    etc_sum = sum(bd.etc for bd in last7)
+    # Transpiration deficit: measured ETa below the unstressed crop demand (ET0 x Kc).
+    # Positive = vines throttling below potential; the first-class stress signal (R12).
+    pot_sum = sum(bd.etc_potential for bd in last7)
     eta_sum = sum(bd.eta for bd in last7)
-    deficit_pct = (etc_sum - eta_sum) / etc_sum * 100.0 if etc_sum > 0 else 0.0
+    deficit_pct = (pot_sum - eta_sum) / pot_sum * 100.0 if pot_sum > 0 else 0.0
     latest_ndvi = next((bd.ndvi for bd in reversed(balance) if bd.ndvi is not None), None)
     return eta_7d, latest_ndvi, deficit_pct
 

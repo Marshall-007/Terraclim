@@ -128,50 +128,78 @@ function EventCard({ e }: { e: BacktestEvent }) {
   );
 }
 
-export function Backtest() {
+/**
+ * The backtest body, shared between the standalone route and the Validation
+ * screen's "Would it have caught it" tab (R13). States the information-limited
+ * methodology (R2) whenever the API declares it.
+ */
+export function BacktestPanel() {
   const btQ = useAsync(() => api.getBacktest(4), []);
   const bestLead = btQ.data?.events.reduce((m, e) => Math.max(m, e.lead_days), 0) ?? 0;
 
+  if (btQ.loading) {
+    return (
+      <div className="card">
+        <LoadingPanel label="Replaying the season" />
+      </div>
+    );
+  }
+  if (btQ.error || !btQ.data) {
+    return (
+      <div className="card">
+        <ErrorState message="Backtest unavailable." onRetry={btQ.reload} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {btQ.data.methodology === 'information_limited' && (
+        <div className="flex items-start gap-2.5 rounded-md border border-line bg-slate-tint/60 px-4 py-3 text-xs leading-relaxed text-ink-soft">
+          <Icon name="info" size={15} className="mt-0.5 shrink-0 text-slate-soft" />
+          <span>
+            <span className="font-semibold text-ink">Information-limited replay.</span>{' '}
+            Each simulated day uses only the data available up to that day plus the
+            forward projection the engine would have had — no hindsight. "Caught N
+            days early" means the projection breached the band before the event
+            occurred.
+          </span>
+        </div>
+      )}
+
+      <div className="grid gap-2.5 sm:grid-cols-3">
+        <StatTile label="Events detected" value={btQ.data.events.length} accent={color.bordeaux} />
+        <StatTile label="Best lead time" value={bestLead} unit="days early" accent={color.stable} />
+        <StatTile
+          label="Window"
+          value={`${fmtDayMonth(btQ.data.window[0])} – ${fmtDayMonth(btQ.data.window[1])}`}
+        />
+      </div>
+
+      <Section title="Farm mean score" hint="Higher = more blocks drifting off their glide path.">
+        <ScoreChart data={btQ.data} />
+      </Section>
+
+      <Section title="Detected events">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {btQ.data.events.map((e) => (
+            <EventCard key={e.date} e={e} />
+          ))}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+export function Backtest() {
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Does it actually work?"
         title="Backtest"
-        subtitle="Replay the season day by day through the same engine. Every heat spike was flagged before it hit — this is the proof, not a promise."
+        subtitle="Replay the season day by day through the same engine, seeing only what it would have seen at the time. Every heat spike was flagged before it hit — this is the proof, not a promise."
       />
-
-      {btQ.loading ? (
-        <div className="card">
-          <LoadingPanel label="Replaying the season" />
-        </div>
-      ) : btQ.error || !btQ.data ? (
-        <div className="card">
-          <ErrorState message="Backtest unavailable." onRetry={btQ.reload} />
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-2.5 sm:grid-cols-3">
-            <StatTile label="Events detected" value={btQ.data.events.length} accent={color.bordeaux} />
-            <StatTile label="Best lead time" value={bestLead} unit="days early" accent={color.stable} />
-            <StatTile
-              label="Window"
-              value={`${fmtDayMonth(btQ.data.window[0])} – ${fmtDayMonth(btQ.data.window[1])}`}
-            />
-          </div>
-
-          <Section title="Farm mean score" hint="Higher = more blocks drifting off their glide path.">
-            <ScoreChart data={btQ.data} />
-          </Section>
-
-          <Section title="Detected events">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {btQ.data.events.map((e) => (
-                <EventCard key={e.date} e={e} />
-              ))}
-            </div>
-          </Section>
-        </>
-      )}
+      <BacktestPanel />
     </div>
   );
 }

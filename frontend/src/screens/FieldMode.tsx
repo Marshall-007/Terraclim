@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAsync } from '../hooks/useApi';
-import type { BlockFeature } from '../types/api';
+import type { BlockFeature, BlockPhoto } from '../types/api';
 import { findBlockAt } from '../lib/geo';
 import { BandGauge } from '../components/common/BandGauge';
 import { StatusPill } from '../components/common/status';
 import { LoadingPanel, ErrorState, Spinner } from '../components/common/states';
+import { PhotoCapture } from '../components/photos/PhotoCapture';
+import { PhotoGallery } from '../components/photos/PhotoGallery';
 import { Icon } from '../components/layout/icons';
 import { stageLabel } from '../lib/status';
 import { fmtFraction, fmtMm } from '../lib/format';
@@ -123,6 +125,29 @@ function Verdict({ id }: { id: string }) {
   );
 }
 
+/**
+ * In-field canopy capture (R17): shoot, upload, and get the screening read
+ * back immediately — the "prove it where you stand" leg of the trust story.
+ */
+function FieldPhoto({ blockId }: { blockId: string }) {
+  const [lastPhoto, setLastPhoto] = useState<BlockPhoto | null>(null);
+  return (
+    <div className="card p-5">
+      <div className="eyebrow mb-1">Field photo</div>
+      <p className="mb-3 text-xs text-ink-muted">
+        Capture the canopy right here — GLI, cover and yellowing are checked
+        against the model's read of this block.
+      </p>
+      <PhotoCapture blockId={blockId} onUploaded={setLastPhoto} />
+      {lastPhoto && (
+        <div className="mt-3">
+          <PhotoGallery photos={[lastPhoto]} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function FieldMode() {
   const blocksQ = useAsync(() => api.getBlocks(), []);
   const [selected, setSelected] = useState<string | null>(null);
@@ -206,9 +231,12 @@ export function FieldMode() {
           </div>
 
           {selected ? (
-            <div className="card p-6">
-              <Verdict id={selected} />
-            </div>
+            <>
+              <div className="card p-6">
+                <Verdict id={selected} />
+              </div>
+              <FieldPhoto key={selected} blockId={selected} />
+            </>
           ) : (
             <div className="card p-8 text-center text-sm text-ink-muted">
               Detect your location or tap a block to get tonight's single instruction.

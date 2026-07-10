@@ -51,7 +51,7 @@ dormant 0.15 · budbreak 0.30 · flowering 0.45 · fruit_set 0.60 · veraison 0.
 
 ### Deviation & status
 - `deviation = f − hi` if `f > hi` (positive, **too_dry**); `deviation = f − lo` if `f < lo` (negative, **too_wet**); else `0` (**on_track**).
-- `score` (0–100) = `min(100, round(|deviation| / 0.35 × 100))` blended with forecast pressure: `score = min(100, round(0.7×deviation_component + 0.3×forecast_component))` where forecast_component = projected |deviation| in 7 days scaled the same way.
+- `score` (0–100), canonical single formulation: `deviation_component = |deviation| / 0.35 × 100` (uncapped); `forecast_component = |projected deviation in 7 days| / 0.35 × 100` (uncapped); `score = min(100, round(0.7 × deviation_component + 0.3 × forecast_component))`, round half up, single cap applied once at the end. Both engine and frontend mocks implement exactly this.
 - Traffic light: 0–25 `stable`, 26–50 `watch`, 51–75 `high`, 76–100 `critical`. Status string is independent: `on_track` / `too_dry` / `too_wet`.
 
 ### Pour Slip math
@@ -79,23 +79,26 @@ GeoJSON FeatureCollection. Feature properties:
 ```
 
 ### `GET /api/blocks/{id}/status`
+
+Worked example: **B4 Windberg Pinotage** (variety factor 1.00, so veraison begins at GDD 1150 unscaled — the numbers below are exact). Demo-canonical block states: **B4 = top too-dry**, **B1 Bosberg Cabernet = too-wet** (seeded ~28 mm over-irrigation per R6 — the "stop watering your Cabernet" climax), enforced identically in the live seed and the frontend mocks.
+
 ```json
 {
-  "block_id": "B1", "as_of": "2026-01-20",
+  "block_id": "B4", "as_of": "2026-01-20",
   "stage": "veraison", "gdd": 1231.5,
   "depletion_mm": 82.1, "depletion_fraction": 0.68,
   "target_band": [0.35, 0.55],
-  "status": "too_dry", "deviation": 0.13, "score": 62, "traffic": "high",
+  "status": "too_dry", "deviation": 0.13, "score": 61, "traffic": "high",
   "drivers": [
     { "key": "et0_7d", "label": "7-day ET0", "value": 6.1, "unit": "mm/day", "pressure": "high" },
     { "key": "rain_7d", "label": "7-day rainfall", "value": 1.2, "unit": "mm", "pressure": "high" },
     { "key": "tmax_7d", "label": "7-day max temp", "value": 33.4, "unit": "°C", "pressure": "high" },
     { "key": "forecast_rain_3d", "label": "Rain next 3 days", "value": 0.0, "unit": "mm", "pressure": "high" }
   ],
-  "recommendation": "Apply 14 mm (7.0 h drip) tonight to return to the veraison glide path.",
+  "recommendation": "Apply 28 mm (14.1 h drip, split over two nights) to return to the veraison glide path.",
   "pour_slip": {
-    "type": "pour", "needed_mm": 14.1, "runtime_hours": 7.0,
-    "window": "tonight", "next_check": "2026-01-23", "hold_days": null
+    "type": "pour", "needed_mm": 28.1, "runtime_hours": 14.1,
+    "window": "next two nights", "next_check": "2026-01-23", "hold_days": null
   }
 }
 ```
@@ -127,7 +130,7 @@ Response:
   "as_of": "2026-01-20",
   "plan": [
     { "day": "2026-01-20", "entries": [
-      { "block_id": "B1", "hours": 4.5, "mm_applied": 9.0,
+      { "block_id": "B4", "hours": 4.5, "mm_applied": 9.0,
         "reason": "Highest glide-path deviation (too dry) in veraison; no rain forecast 5 days." }
     ]},
     { "day": "2026-01-21", "entries": [] }
@@ -225,7 +228,7 @@ class DailyWeather:
 
 `DailyWeather` gains optional `eta: float | None` (measured actual ET, mm) and `ndvi: float | None`. When `eta` is present the balance consumes it directly; modelled `ETc×Ks` remains the forecast/gap-fill layer. `Ks` per FAO-56: `RAW = p × TAW`, `p = 0.45`; `Ks = (TAW − D)/(TAW − RAW)` when `D > RAW` else 1; `ETc_adj = ET0 × Kc × Ks`. Effective rainfall: days < 2 mm ignored; daily infiltration capped at 40 mm.
 - `/api/blocks/{id}/status` gains `"eta_7d"` and `"ndvi"` drivers when data exists, plus `"transpiration_deficit_pct"` (ETa vs ETc divergence) — absent, never null-crash, when no ETa source.
-- `/api/blocks/{id}/timeseries` rows gain optional `eta`, `ndvi`.
+- `/api/blocks/{id}/timeseries` rows gain optional `eta`, `ndvi`, and REQUIRED `kc` (the stage/NDVI-derived crop coefficient used that day — Kc is a named checklist item in the brief and must be displayable per block per day).
 
 ### B. Stem water potential display (R3)
 
