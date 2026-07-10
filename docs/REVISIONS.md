@@ -75,6 +75,21 @@ Accepted changes from the red-team review (`docs/RED_TEAM.md`), to be applied to
 
 **Pitch tie-in:** "We don't approximate a block with a rectangle. We trace the real parcel and pull climate for that exact geometry — which is exactly what TerraClim's polygon zonal statistics are built for."
 
+## R11 — In-app Data Source control panel (HIGH, product — from Marshall)
+
+**Requirement:** Run on the free API now; on hackathon Day 0 switch to TerraClim from inside the app — no code changes, no redeploy. A settings dashboard controls the data layer.
+
+**Fix — a Settings / Data Source screen + backend support:**
+1. **Backend endpoints:**
+   - `GET /api/settings` → current provider, TerraClim readiness, token status (**masked** — e.g. `"token": "set (••••1234)"`, never the value), cache stats (entries, age), active `as_of` date.
+   - `POST /api/settings/provider` → `{ "provider": "terraclim" | "open-meteo", "token": "..." (optional) }`. Validates the token with one live test call before accepting; persists server-side to `backend/app/data/settings.json` (gitignored) and applies without restart. On failure returns the provider's error so we can debug live at the venue.
+   - `POST /api/settings/cache/refresh` → purge + re-warm the golden cache for all blocks (the "Day 0 button": flip provider, press once, whole app now runs on TerraClim data).
+   - `POST /api/settings/demo-date` → set `as_of` at runtime (demo control, no env edit).
+2. **Frontend Settings screen:** provider cards (Open-Meteo "active" / TerraClim "ready — needs token"), masked token input, Test & Activate button with live status feedback, cache refresh button, as_of date picker, and a data-freshness readout. Small provider badge in the app header so judges can see "Data: TerraClim" during the demo.
+3. **Security rules:** token is write-only from the UI; never echoed back, never stored in frontend state/localStorage, never in git (settings.json gitignored). All climate calls stay backend-side as before.
+
+**Demo tie-in:** this replaces the killed "env var flip" line with something better and *live*: open Settings on stage, paste the token TerraClim hands out, press Activate — the header badge flips to "Data: TerraClim" in front of the judges.
+
 ---
 
 ### Application order
