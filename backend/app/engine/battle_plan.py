@@ -117,9 +117,10 @@ def build_plan(evaluations: list, available_hours_per_day: float, horizon_days: 
     total_available_hours = round(available_hours_per_day * horizon_days, 1)
     if total_available_hours == int(total_available_hours):
         total_available_hours = int(total_available_hours)
+    skipped_noun = "block" if len(skipped) == 1 else "blocks"
     summary = (
         f"{total_available_hours} available hours allocated to {len(scheduled_ids)} of "
-        f"{len(blocks)} blocks; {len(skipped)} blocks skipped on forecast; "
+        f"{len(blocks)} blocks; {len(skipped)} {skipped_noun} skipped on forecast; "
         f"est. {round(water_saved_m3)} m³ water saved."
     )
     return {"as_of": as_of.isoformat(), "plan": plan, "skipped": skipped, "summary": summary}

@@ -59,6 +59,21 @@ The engine only ever sees the `ClimateProvider` interface (`app/providers/base.p
 
 All provider calls flow through a disk cache in `app/data/cache/`.
 
+## Demo irrigation history
+
+The demo farm is an *irrigated* vineyard, so `app/data/irrigation_log.json` ships with
+a season of managed-deficit irrigation events. This is what lets the blocks sit on
+their glide paths (a mix of on-track, too-dry, and one deliberately over-watered
+too-wet block) instead of saturating at full depletion, as an unirrigated rain-fed
+balance would by mid-summer. The history is generated deterministically and is fully
+auditable — the balance replays it exactly (log → balance → status):
+
+```bash
+python -m scripts.seed_irrigation      # regenerate app/data/irrigation_log.json
+```
+
+New irrigation events logged via `POST /api/irrigation` are appended to the same file.
+
 ## Tests
 
 ```bash

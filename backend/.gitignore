@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+# Runtime provider cache; keep the directory, not its contents.
+app/data/cache/*.json
