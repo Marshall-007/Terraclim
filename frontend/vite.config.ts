@@ -58,6 +58,17 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          {
+            // Esri World Imagery satellite basemap (R10) — cached the same way
+            // so the offline demo keeps its aerial view.
+            urlPattern: ({ url }) => url.hostname.includes('arcgisonline.com'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'vino-esri-tiles',
+              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 14 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
       devOptions: { enabled: false },

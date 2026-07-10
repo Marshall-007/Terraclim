@@ -26,10 +26,12 @@ OUT_PATH = Path(__file__).resolve().parent.parent / "app" / "data" / "irrigation
 AS_OF = date(2026, 1, 20)
 # Days since each block's last routine irrigation (a real farm rotates blocks, so
 # they drift to different points on the glide path). Larger gap -> drier at as_of.
-STOP_BUFFER_DAYS = {"B1": 6, "B2": 3, "B4": 7, "B5": 2, "B6": 4, "B7": 3}
+# B4 (Windberg Pinotage, variety factor 1.0) carries the longest gap so it reads as
+# the top too-dry block on the demo date — the contract's worked example.
+STOP_BUFFER_DAYS = {"B2": 4, "B3": 3, "B4": 10, "B5": 2, "B6": 3, "B7": 4}
 DEFAULT_BUFFER = 3
 IRRIGATION_INTERVAL = 3       # drip runs on a cadence, not daily
-OVERWATER_BLOCK = "B3"        # deliberately over-irrigated block -> too_wet
+OVERWATER_BLOCK = "B1"        # Bosberg Cabernet: recent ~28 mm over-irrigation -> too_wet (R6)
 OVERWATER_TARGET_FRACTION = 0.08
 
 provider = FixtureProvider()

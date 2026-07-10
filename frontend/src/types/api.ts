@@ -120,6 +120,8 @@ export interface HistoryPoint {
   date: string;
   et0: number;
   etc: number;
+  /** Crop coefficient in effect that day — a judged per-day signal. */
+  kc: number;
   rain: number;
   irrigation_mm: number;
   depletion_fraction: number;
@@ -136,6 +138,7 @@ export interface ForecastPoint {
   date: string;
   et0: number;
   etc: number;
+  kc: number;
   rain: number;
   depletion_fraction_projected: number;
   band_lo: number;

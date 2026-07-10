@@ -11,7 +11,12 @@ from app.engine.scoring import (
     traffic_for,
 )
 from app.engine.season_bank import compute_bank
-from app.engine.water_balance import compute_balance
+from app.engine.water_balance import (
+    P_DEPLETION,
+    compute_balance,
+    effective_rain,
+    stress_coefficient,
+)
 from app.providers.base import DailyWeather
 from app.providers.fixture import FixtureProvider
 from app.services import Block, stress_targets, kc_curves
@@ -194,3 +199,97 @@ def test_band_lookup_by_style():
     targets = stress_targets()
     assert band_for(targets, "fruit_set", "premium_red") == [0.45, 0.65]
     assert band_for(targets, "fruit_set", "fresh_white") == [0.25, 0.45]
+
+
+# --- DataPackProvider: CSV path, no extra deps ----------------------------
+
+def test_datapack_provider_reads_csv(tmp_path):
+    import json as _json
+    from app.providers.base import ProviderError
+    from app.providers.datapack import DataPackProvider
+
+    (tmp_path / "series").mkdir()
+    (tmp_path / "series" / "B1.csv").write_text(
+        "date,et0,eta,ndvi,rain,tmax,tmin\n"
+        "2026-01-18,6.0,3.9,0.71,0.0,31.0,17.0\n"
+        "2026-01-19,6.2,4.0,0.72,0.0,32.0,18.0\n"
+        "2026-01-20,5.8,3.7,0.70,1.5,30.0,16.0\n"
+    )
+    (tmp_path / "datapack.json").write_text(_json.dumps({
+        "name": "SYNTHETIC test pack", "synthetic": True, "format": "csv",
+        "layers": ["et0", "eta", "ndvi"],
+        "blocks": [{"block_id": "B1", "lat": -33.928, "lon": 18.8585, "csv": "series/B1.csv"}],
+    }))
+
+    pack = DataPackProvider(tmp_path)
+    assert pack.loaded
+    rows = pack.get_daily(-33.928, 18.8585, date(2026, 1, 18), date(2026, 1, 20))
+    assert len(rows) == 3
+    assert rows[0].eta == 3.9 and rows[0].ndvi == 0.71
+
+    # Retrospective source: no forecast.
+    try:
+        pack.get_forecast(-33.928, 18.8585, 7)
+        assert False, "datapack must not serve a forecast"
+    except ProviderError:
+        pass
+
+    # Missing pack -> not loaded.
+    assert DataPackProvider(tmp_path / "nope").loaded is False
+
+
+# --- FAO-56 Ks stress coefficient -----------------------------------------
+
+def test_ks_kicks_in_above_raw():
+    taw = 120.0
+    raw = P_DEPLETION * taw  # 54 mm
+    # At or below RAW the crop is unstressed.
+    assert stress_coefficient(raw - 15, taw) == 1.0
+    assert stress_coefficient(raw, taw) == 1.0
+    # Above RAW, Ks throttles linearly toward 0 at TAW.
+    ks = stress_coefficient(raw + 30, taw)
+    assert 0.0 < ks < 1.0
+    assert stress_coefficient(taw, taw) == 0.0
+
+    # In the balance, once depletion passes RAW the applied ETc falls below the
+    # unstressed ET0 x Kc; below RAW they match.
+    weather = make_weather(50, tmax=32.0, tmin=18.0, et0=9.0, rain=0.0)
+    phen = build_phenology(weather, factor=1.0)
+    balance = compute_balance(weather, phen, kc_curves(), taw, {})
+    below = [b for b in balance if b.depletion_mm <= raw]
+    above = [b for b in balance if b.depletion_mm > raw + 5]
+    assert below and abs(below[0].etc - below[0].etc_potential) < 1e-6
+    assert above and above[-1].etc < above[-1].etc_potential
+
+
+def test_effective_rainfall_threshold_and_cap():
+    assert effective_rain(1.9) == 0.0        # sub-threshold day evaporates
+    assert effective_rain(2.0) == 2.0
+    assert effective_rain(90.0) == 40.0      # infiltration capped, excess runs off
+
+
+def test_measured_eta_overrides_modelled():
+    taw = 120.0
+    kc = kc_curves()
+    base = make_weather(25, tmax=30.0, tmin=16.0, et0=6.0, rain=0.0)
+    phen = build_phenology(base, factor=1.0)
+    modelled = compute_balance(base, phen, kc, taw, {})
+
+    # Same weather, but a measured ETa well below the modelled crop ET.
+    with_eta = [
+        DailyWeather(date=w.date, et0=w.et0, rain=w.rain, tmax=w.tmax, tmin=w.tmin, eta=0.5)
+        for w in base
+    ]
+    measured = compute_balance(with_eta, phen, kc, taw, {})
+    # The balance consumes the measured 0.5 mm/day, so depletion grows slower.
+    assert measured[-1].eta == 0.5
+    assert measured[-1].depletion_mm < modelled[-1].depletion_mm
+
+
+def test_score_formula_uncapped_components_single_cap():
+    # A large current deviation alone saturates the blended score at 100 (the single
+    # end cap), since components are uncapped before blending.
+    assert score_value(1.0, 0.0) == 100
+    # Half-up rounding at the boundary.
+    # comp(0.1225) = 35.0 exactly; 0.7*35 + 0.3*35 = 35 -> 35.
+    assert score_value(0.1225, 0.1225) == 35

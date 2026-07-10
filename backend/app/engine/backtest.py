@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 from dateutil.relativedelta import relativedelta
 
-from .forecast import project_forward
+from .forecast import project_forward, projected_deviation
 from .phenology import build_phenology, variety_factor
 from .scoring import band_for, deviation_status, score_value
 from .water_balance import compute_balance
@@ -12,7 +12,8 @@ from .water_balance import compute_balance
 HEAT_SPIKE_TMAX = 35.0
 HEAT_FORECAST_TMAX = 33.0   # a day this hot inside the forward window = the engine "saw heat coming"
 LEAD_LOOKBACK_DAYS = 14
-FORWARD_HORIZON = 7
+FORWARD_HORIZON = 7         # 7-day window for the score's forecast component (contract)
+PROJECTION_DAYS = 10       # early-warning look-ahead for event detection
 HARVEST_GDD = 1600.0
 
 
@@ -32,7 +33,7 @@ def _block_daily(block, provider, targets, kc, season: date, as_of: date, irriga
     # Forward weather the engine would have projected from; deterministic here, a live
     # forecast feed in production (disclosed — no archived forecast exists to replay).
     forward_ext = provider.get_daily(
-        block.lat, block.lon, as_of + timedelta(days=1), as_of + timedelta(days=FORWARD_HORIZON)
+        block.lat, block.lon, as_of + timedelta(days=1), as_of + timedelta(days=PROJECTION_DAYS)
     )
     combined = history + forward_ext
 
@@ -47,18 +48,15 @@ def _block_daily(block, provider, targets, kc, season: date, as_of: date, irriga
         lo, hi = band_for(targets, bd.stage, block.wine_style)
         dev, status = deviation_status(bd.depletion_fraction, lo, hi)
 
-        window = combined[i + 1: i + 1 + FORWARD_HORIZON]
+        window = combined[i + 1: i + 1 + PROJECTION_DAYS]
         proj = project_forward(
             bd.depletion_mm, gdd_by_i[i], harvest_onset, window,
             factor, kc, block.taw_mm, targets, block.wine_style,
         )
-        proj_breach = any(
-            p["depletion_fraction_projected"] > p["band_hi"] for p in proj
-        )
-        proj_dev = 0.0
-        for p in proj:
-            d, _ = deviation_status(p["depletion_fraction_projected"], p["band_lo"], p["band_hi"])
-            proj_dev = max(proj_dev, d)
+        # Score's forecast component uses the 7-day deviation, identical to the live
+        # engine; event detection scans the fuller window for a projected breach.
+        proj_dev = projected_deviation(proj, FORWARD_HORIZON)
+        proj_breach = any(p["depletion_fraction_projected"] > p["band_hi"] for p in proj)
         proj_hot = max((w.tmax for w in window), default=0.0)
 
         rows.append(

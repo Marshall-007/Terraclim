@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import math
 from datetime import date, timedelta
 
-# Score scaling: a deviation of 0.35 in depletion fraction saturates a component at 100.
+# Score scaling: a deviation of 0.35 in depletion fraction scores a component at 100.
 DEVIATION_FULL_SCALE = 0.35
 FORECAST_WEIGHT = 0.3
 NOW_WEIGHT = 0.7
+
+
+def _round_half_up(x: float) -> int:
+    return int(math.floor(x + 0.5))
 
 
 def band_for(targets: dict, stage: str, style: str) -> list[float]:
@@ -23,13 +28,16 @@ def deviation_status(f: float, lo: float, hi: float) -> tuple[float, str]:
 
 
 def _component(deviation: float) -> float:
-    return min(100.0, abs(deviation) / DEVIATION_FULL_SCALE * 100.0)
+    # Uncapped: deviation / full-scale, in points. The single cap is applied once
+    # to the blended score, per the contract's canonical formula.
+    return abs(deviation) / DEVIATION_FULL_SCALE * 100.0
 
 
 def score_value(deviation_now: float, deviation_forecast: float) -> int:
-    now = _component(deviation_now)
-    fut = _component(deviation_forecast)
-    return int(min(100, round(NOW_WEIGHT * now + FORECAST_WEIGHT * fut)))
+    deviation_component = _component(deviation_now)
+    forecast_component = _component(deviation_forecast)
+    blended = NOW_WEIGHT * deviation_component + FORECAST_WEIGHT * forecast_component
+    return min(100, _round_half_up(blended))
 
 
 def traffic_for(score: int) -> str:

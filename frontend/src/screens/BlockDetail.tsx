@@ -329,8 +329,14 @@ function PanelBody({
             </div>
           )}
           <EtChart history={history} />
-          <div className="mt-3">
+          <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
             <NdviSparkline history={history} />
+            <div className="rounded-md border border-line bg-raised px-3 py-2 sm:min-w-[104px]">
+              <div className="text-[11px] text-ink-muted">Kc ({stageLabel(s.stage)})</div>
+              <div className="nums mt-0.5 text-lg font-semibold text-ink">
+                {history.at(-1)?.kc.toFixed(2)}
+              </div>
+            </div>
           </div>
         </div>
       )}

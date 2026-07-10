@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..deps import get_provider_dep, parse_as_of
 from ..engine.scoring import band_for
+from ..engine.water_balance import kc_for
 from ..schemas import NewBlock
 from ..services import (
     blocks_geojson,
@@ -116,7 +117,8 @@ def block_timeseries(
 ):
     block = _find_block(block_id)
     targets = stress_targets()
-    ev = evaluate_block(block, as_of, provider, targets, kc_curves())
+    kc = kc_curves()
+    ev = evaluate_block(block, as_of, provider, targets, kc)
 
     history = []
     for bd in ev.balance[-days:]:
@@ -125,6 +127,7 @@ def block_timeseries(
             "date": bd.date.isoformat(),
             "et0": bd.et0,
             "etc": bd.etc,
+            "kc": kc_for(kc, bd.stage),
             "rain": bd.rain,
             "irrigation_mm": bd.irrigation_mm,
             "depletion_fraction": bd.depletion_fraction,
@@ -143,6 +146,7 @@ def block_timeseries(
             "date": e["date"],
             "et0": e["et0"],
             "etc": e["etc"],
+            "kc": kc_for(kc, e["stage"]),
             "rain": e["rain"],
             "depletion_fraction_projected": e["depletion_fraction_projected"],
             "band_lo": e["band_lo"],

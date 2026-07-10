@@ -9,6 +9,12 @@ from .water_balance import kc_for
 
 HARVEST_GDD = 1600.0
 PROJECTION_CAP_DAYS = 170
+POST_HARVEST_DAYS = 30
+
+# Canonical season end: the latest per-block harvest-stage entry date (from the GDD
+# projection) plus the 30-day post-harvest window. The demand horizon runs to this
+# date — no block draws irrigation water past its own harvest, so the burn-down and
+# the shortfall verdict are bounded by when the last block comes off the vine.
 
 # Stage-mean climatology for the Cape winelands, used to extend the demand model
 # past the forecast horizon (first 14 days use real/forecast weather).
@@ -23,9 +29,10 @@ STAGE_CLIMATE: dict[str, dict[str, float]] = {
 }
 
 
-def _block_demand_series(inp: dict, as_of: date, kc: dict) -> list[tuple[date, float]]:
+def _block_demand_series(inp: dict, as_of: date, kc: dict) -> tuple[list[tuple[date, float]], date | None]:
     """Daily irrigation demand (m³) to hold the block at its band midpoint, from the
-    day after as_of until it reaches harvest. Forecast weather first, then climatology."""
+    day after as_of until it reaches harvest. Forecast weather first, then climatology.
+    Also returns the projected harvest-stage entry date (None if not reached in cap)."""
     block = inp["block"]
     factor = inp["factor"]
     forward: list[DailyWeather] = inp["forward"]
@@ -34,12 +41,15 @@ def _block_demand_series(inp: dict, as_of: date, kc: dict) -> list[tuple[date, f
     gdd = inp["cum_gdd"]
     onset = inp["harvest_onset"]
     series: list[tuple[date, float]] = []
+    harvest_entry = onset
 
     for day in range(1, PROJECTION_CAP_DAYS + 1):
         d = as_of + timedelta(days=day)
         days_since_harvest = (d - onset).days if onset else None
         stage = stage_after(gdd, factor, days_since_harvest)
         if stage in ("harvest", "post_harvest"):
+            if harvest_entry is None:
+                harvest_entry = d
             break  # demand is accounted only up to harvest
 
         if day <= len(forward):
@@ -56,16 +66,20 @@ def _block_demand_series(inp: dict, as_of: date, kc: dict) -> list[tuple[date, f
         gdd += max(0.0, tmean - 10.0)
         if onset is None and gdd >= HARVEST_GDD * factor:
             onset = d
+            harvest_entry = d
 
-    return series
+    return series, harvest_entry
 
 
 def compute_bank(block_inputs: list[dict], remaining_m3: float, as_of: date, kc: dict) -> dict:
     demand_by_date: dict[date, float] = defaultdict(float)
     white_demand = 0.0
+    harvest_ends: list[date] = []
 
     for inp in block_inputs:
-        series = _block_demand_series(inp, as_of, kc)
+        series, harvest_entry = _block_demand_series(inp, as_of, kc)
+        if harvest_entry is not None:
+            harvest_ends.append(harvest_entry + timedelta(days=POST_HARVEST_DAYS))
         block_total = sum(dem for _, dem in series)
         if inp["block"].wine_style in ("white", "fresh_white"):
             white_demand += block_total
@@ -74,6 +88,8 @@ def compute_bank(block_inputs: list[dict], remaining_m3: float, as_of: date, kc:
 
     dates = sorted(demand_by_date)
     projected_demand = sum(demand_by_date.values())
+    # Canonical: latest per-block harvest entry + 30 d post-harvest window.
+    season_end = max(harvest_ends) if harvest_ends else (dates[-1] if dates else as_of)
 
     burn_down: list[dict] = []
     cumulative = 0.0
@@ -112,6 +128,7 @@ def compute_bank(block_inputs: list[dict], remaining_m3: float, as_of: date, kc:
 
     return {
         "as_of": as_of.isoformat(),
+        "season_end": season_end.isoformat(),
         "remaining_m3": round(remaining_m3),
         "projected_demand_m3": round(projected_demand),
         "verdict": verdict,

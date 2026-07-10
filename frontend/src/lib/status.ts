@@ -36,6 +36,16 @@ const STYLE_LABEL: Record<WineStyle, string> = {
 
 export const styleLabel = (s: WineStyle): string => STYLE_LABEL[s];
 
+/** Human name for a climate data provider id. */
+export const providerLabel = (p: string): string =>
+  p === 'open-meteo'
+    ? 'Open-Meteo'
+    : p === 'terraclim'
+      ? 'TerraClim'
+      : p === 'datapack'
+        ? 'Data pack'
+        : p;
+
 /**
  * The map fill for a block. Traffic light drives the base color; a too-wet
  * block additionally reads cool (blue tint) so over-watering is legible at a

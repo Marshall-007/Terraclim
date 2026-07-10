@@ -7,6 +7,8 @@ import { SeasonBank } from './screens/SeasonBank';
 import { PourSlips } from './screens/PourSlips';
 import { Scenario } from './screens/Scenario';
 import { Backtest } from './screens/Backtest';
+import { Validate } from './screens/Validate';
+import { Settings } from './screens/Settings';
 
 export function App() {
   return (
@@ -19,6 +21,9 @@ export function App() {
           <Route path="water-bank" element={<SeasonBank />} />
           <Route path="slips" element={<PourSlips />} />
           <Route path="scenario" element={<Scenario />} />
+          <Route path="validate" element={<Validate />} />
+          <Route path="settings" element={<Settings />} />
+          {/* Backtest lives inside Validate now; the direct route stays valid. */}
           <Route path="backtest" element={<Backtest />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

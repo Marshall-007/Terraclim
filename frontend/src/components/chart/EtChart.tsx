@@ -16,7 +16,7 @@ interface Row {
   date: string;
   et0: number;
   eta: number | null;
-  kc: number | null;
+  kc: number;
   ndvi: number | null;
 }
 
@@ -25,7 +25,7 @@ function buildRows(history: HistoryPoint[], days: number): Row[] {
     date: h.date,
     et0: h.et0,
     eta: h.eta ?? null,
-    kc: h.et0 > 0 ? Math.round((h.etc / h.et0) * 100) / 100 : null,
+    kc: h.kc,
     ndvi: h.ndvi ?? null,
   }));
 }
@@ -45,7 +45,7 @@ function EtTooltip({ active, payload, label }: any) {
       <div className="mb-1 font-medium text-ink">{fmtLongDate(label)}</div>
       {row.eta != null && line('ETa (measured)', `${row.eta.toFixed(1)} mm`)}
       {line('ETo (reference)', `${row.et0.toFixed(1)} mm`)}
-      {row.kc != null && line('Kc', row.kc.toFixed(2))}
+      {line('Kc', row.kc.toFixed(2))}
       {row.ndvi != null && line('NDVI', row.ndvi.toFixed(2))}
     </div>
   );
