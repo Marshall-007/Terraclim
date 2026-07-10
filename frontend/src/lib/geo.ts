@@ -77,3 +77,51 @@ export function collectionBounds(
 export function ringToLatLng(ring: number[][]): [number, number][] {
   return ring.map(([lon, lat]) => [lat, lon]);
 }
+
+// ---------------------------------------------------------------------------
+// Trace-a-block geometry: vertex list → closed ring → area.
+// ---------------------------------------------------------------------------
+
+const EARTH_RADIUS_M = 6_371_008.8;
+const DEG = Math.PI / 180;
+
+/**
+ * Close an open vertex list into a GeoJSON linear ring: the first vertex is
+ * appended at the end (unless already closed). Returns a new array; the input
+ * is never mutated. Fewer than 3 distinct vertices is not a polygon → null.
+ */
+export function closeRing(vertices: LngLat[]): number[][] | null {
+  if (vertices.length < 3) return null;
+  const first = vertices[0];
+  const last = vertices[vertices.length - 1];
+  const alreadyClosed = first[0] === last[0] && first[1] === last[1];
+  const open = alreadyClosed ? vertices.slice(0, -1) : vertices;
+  if (open.length < 3) return null;
+  return [...open.map(([lon, lat]) => [lon, lat]), [first[0], first[1]]];
+}
+
+/**
+ * Planar shoelace area of a closed lon/lat ring, projected to metres with an
+ * equirectangular approximation about the ring's mean latitude. Accurate to
+ * well under 1% at field scale, which is all the tracing tool needs.
+ * Returns square metres, always positive (winding-independent).
+ */
+export function ringAreaM2(ring: number[][]): number {
+  if (ring.length < 4) return 0; // closed ring needs 3 vertices + repeat
+  const lat0 =
+    (ring.reduce((s, [, lat]) => s + lat, 0) / ring.length) * DEG;
+  const kx = EARTH_RADIUS_M * Math.cos(lat0) * DEG; // metres per degree lon
+  const ky = EARTH_RADIUS_M * DEG; // metres per degree lat
+  let sum = 0;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[i + 1];
+    sum += x1 * kx * (y2 * ky) - x2 * kx * (y1 * ky);
+  }
+  return Math.abs(sum) / 2;
+}
+
+/** Area of a closed ring in hectares, rounded to 0.01 ha. */
+export function ringAreaHa(ring: number[][]): number {
+  return Math.round((ringAreaM2(ring) / 10_000) * 100) / 100;
+}

@@ -1,7 +1,7 @@
 /**
- * TypeScript mirror of docs/API_CONTRACT.md (v1). These shapes are binding —
- * the typed client (services/api.ts) and the mock fixtures (services/mocks.ts)
- * both satisfy exactly these interfaces.
+ * TypeScript mirror of docs/API_CONTRACT.md (v1 + the Contract v2 addendum).
+ * These shapes are binding — the typed client (services/api.ts) and the mock
+ * fixtures (services/mocks.ts) both satisfy exactly these interfaces.
  */
 
 export type WineStyle = 'premium_red' | 'red' | 'white' | 'fresh_white';
@@ -34,6 +34,14 @@ export interface Health {
 }
 
 // GET /api/blocks — GeoJSON FeatureCollection
+export interface BlockTerrain {
+  elevation_m: number;
+  slope_deg: number;
+  aspect: string;
+  jan_et0_normal_mm_day: number;
+  annual_rain_normal_mm: number;
+}
+
 export interface BlockProperties {
   id: string;
   name: string;
@@ -42,6 +50,10 @@ export interface BlockProperties {
   area_ha: number;
   application_rate_mm_h: number;
   taw_mm: number;
+  /** True for blocks traced in-app (POST /api/blocks); only these are deletable. */
+  user_created?: boolean;
+  /** TerraClim terrain + long-term normals — present once the data pack loads. */
+  terrain?: BlockTerrain;
 }
 
 export interface BlockFeature {
@@ -92,6 +104,10 @@ export interface BlockStatus {
   drivers: Driver[];
   recommendation: string;
   pour_slip: PourSlip;
+  /** Modelled midday stem water potential equivalent (MPa, negative). v2 §B. */
+  mswp_estimate_mpa?: number;
+  /** MPa at [band lo, band hi] — the target expressed in grower units. */
+  mswp_band_mpa?: [number, number];
 }
 
 /** Status object augmented with a baseline delta — /api/scenario response. */
@@ -110,6 +126,10 @@ export interface HistoryPoint {
   band_lo: number;
   band_hi: number;
   stage: Stage;
+  /** Measured actual ET (mm) when an ETa source exists. v2 §A. */
+  eta?: number;
+  /** Sentinel-2 vigour when available. v2 §A. */
+  ndvi?: number;
 }
 
 export interface ForecastPoint {
@@ -205,6 +225,8 @@ export interface Backtest {
   window: [string, string];
   events: BacktestEvent[];
   series: BacktestSeriesPoint[];
+  /** v2 §G — day-D flags use only data ≤ D; the UI states this. */
+  methodology?: 'information_limited' | string;
 }
 
 // GET /api/briefing
@@ -231,4 +253,135 @@ export interface IrrigationRequest {
 
 export interface IrrigationResponse {
   ok: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Contract v2 addendum
+// ---------------------------------------------------------------------------
+
+// POST /api/blocks (v2 §F — traced block polygons)
+export interface CreateBlockRequest {
+  name: string;
+  variety: string;
+  wine_style: WineStyle;
+  application_rate_mm_h: number;
+  geometry: {
+    type: 'Polygon';
+    coordinates: number[][][];
+  };
+}
+
+export interface DeleteBlockResponse {
+  ok: boolean;
+  error?: string;
+}
+
+// GET /api/settings (v2 §D)
+export type ProviderName = 'open-meteo' | 'terraclim' | 'datapack';
+
+export interface Settings {
+  provider: ProviderName | string;
+  terraclim_ready: boolean;
+  /** "unset" | "set (••••1234)" — the token value is never returned. */
+  token_status: string;
+  cache: { entries: number; oldest_minutes: number };
+  as_of: string;
+  datapack: { loaded: boolean; path?: string; layers?: string[] };
+}
+
+// POST /api/settings/provider
+export interface ProviderRequest {
+  provider: ProviderName | string;
+  token?: string;
+}
+
+export interface ProviderResponse {
+  ok: boolean;
+  error?: string;
+  settings?: Settings;
+}
+
+// POST /api/settings/cache/refresh
+export interface CacheRefreshBlockResult {
+  block_id: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface CacheRefreshResponse {
+  ok: boolean;
+  results: CacheRefreshBlockResult[];
+}
+
+// POST /api/settings/demo-date
+export interface DemoDateRequest {
+  as_of: string;
+}
+
+export interface DemoDateResponse {
+  ok: boolean;
+  as_of: string;
+}
+
+// GET /api/validation/{block_id} (v2 §C)
+export interface ValidationSeriesPoint {
+  date: string;
+  /** Modelled or reference MSWP-equivalent, MPa (negative). */
+  mpa: number;
+}
+
+export interface ValidationReading {
+  reading_id: string;
+  block_id: string;
+  date: string;
+  mswp_mpa: number;
+  note: string | null;
+  /** Model value on the reading's date, and reading − model. */
+  model_mpa: number;
+  delta_mpa: number;
+}
+
+export interface ValidationAgreement {
+  bias: number;
+  rmse: number;
+  n: number;
+  within_band_pct: number;
+}
+
+export interface BlockValidation {
+  block_id: string;
+  model_series: ValidationSeriesPoint[];
+  readings: ValidationReading[];
+  reference_series: ValidationSeriesPoint[];
+  /** e.g. "wapor", "fruitlook" — or "pending_datapack" when reference_series is []. */
+  reference_source: string;
+  agreement: ValidationAgreement;
+}
+
+// POST /api/validation/reading
+export interface ValidationReadingRequest {
+  block_id: string;
+  date: string;
+  mswp_mpa: number;
+  note?: string;
+}
+
+// Photos (v2 §C / R17)
+export type StressHint = 'none' | 'mild' | 'visible';
+
+export interface PhotoAnalysis {
+  gli_mean: number;
+  canopy_cover_pct: number;
+  yellowing_pct: number;
+  stress_hint: StressHint;
+  agrees_with_model: boolean;
+}
+
+export interface BlockPhoto {
+  photo_id: string;
+  block_id: string;
+  date: string;
+  url: string;
+  note: string | null;
+  analysis: PhotoAnalysis;
 }

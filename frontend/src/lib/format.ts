@@ -18,6 +18,16 @@ export const fmtGdd = (gdd: number): string =>
 export const fmtSigned = (n: number, digits = 0): string =>
   `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toFixed(digits)}`;
 
+/** −1.15 MPa (true minus sign, 2 decimals) */
+export const fmtMpa = (mpa: number): string =>
+  `${mpa < 0 ? '−' : ''}${Math.abs(mpa).toFixed(2)} MPa`;
+
+/** −1.00 to −1.20 MPa */
+export const fmtMpaBand = (band: [number, number]): string => {
+  const one = (v: number) => `${v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}`;
+  return `${one(band[0])} to ${one(band[1])} MPa`;
+};
+
 const MONTHS = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',

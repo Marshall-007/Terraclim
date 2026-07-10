@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 
 from .engine import forecast as fc
+from .engine import mswp as mswp_engine
 from .engine import phenology as ph
 from .engine import scoring
 from .engine.water_balance import BalanceDay, compute_balance
@@ -58,25 +60,28 @@ def centroid(geometry: dict) -> tuple[float, float]:
     return lon, lat
 
 
+def _feature_to_block(feat: dict) -> Block:
+    p = feat["properties"]
+    lon, lat = centroid(feat["geometry"])
+    return Block(
+        id=p["id"], name=p["name"], variety=p["variety"],
+        wine_style=p["wine_style"], area_ha=p["area_ha"],
+        application_rate_mm_h=p["application_rate_mm_h"], taw_mm=p.get("taw_mm", 120),
+        lon=lon, lat=lat, geometry=feat["geometry"],
+    )
+
+
 def load_blocks() -> list[Block]:
-    fc_json = _load_json("blocks.geojson")
-    blocks: list[Block] = []
-    for feat in fc_json["features"]:
-        p = feat["properties"]
-        lon, lat = centroid(feat["geometry"])
-        blocks.append(
-            Block(
-                id=p["id"], name=p["name"], variety=p["variety"],
-                wine_style=p["wine_style"], area_ha=p["area_ha"],
-                application_rate_mm_h=p["application_rate_mm_h"], taw_mm=p["taw_mm"],
-                lon=lon, lat=lat, geometry=feat["geometry"],
-            )
-        )
-    return blocks
+    features = blocks_geojson()["features"]
+    return [_feature_to_block(feat) for feat in features]
 
 
 def blocks_geojson() -> dict:
-    return _load_json("blocks.geojson")
+    """Demo fixture blocks plus any user-traced blocks, as one FeatureCollection."""
+    fc_json = _load_json("blocks.geojson")
+    features = list(fc_json["features"])
+    features.extend(read_user_blocks()["features"])
+    return {"type": "FeatureCollection", "features": features}
 
 
 def kc_curves() -> dict:
@@ -85,6 +90,10 @@ def kc_curves() -> dict:
 
 def stress_targets() -> dict:
     return _load_json("stress_targets.json")
+
+
+def mswp_map() -> dict:
+    return _load_json("mswp_map.json")
 
 
 def season_start(as_of: date) -> date:
@@ -122,6 +131,45 @@ def irrigation_for_block(block_id: str) -> dict[date, float]:
             continue
         out[d] = out.get(d, 0.0) + float(row.get("mm", 0.0))
     return out
+
+
+# --- user-traced blocks ---------------------------------------------------
+
+_USER_BLOCKS_PATH = DATA_DIR / "user_blocks.geojson"
+EARTH_RADIUS_M = 6_371_000.0
+
+
+def read_user_blocks() -> dict:
+    try:
+        fc_json = json.loads(_USER_BLOCKS_PATH.read_text())
+        if fc_json.get("type") == "FeatureCollection" and isinstance(fc_json.get("features"), list):
+            return fc_json
+    except (ValueError, OSError):
+        pass
+    return {"type": "FeatureCollection", "features": []}
+
+
+def write_user_blocks(fc_json: dict) -> None:
+    _USER_BLOCKS_PATH.write_text(json.dumps(fc_json, indent=2))
+
+
+def polygon_area_ha(geometry: dict) -> float:
+    """Spherical-approximation planar area of a lon/lat polygon ring, in hectares.
+    Equirectangular projection about the ring centroid — accurate at parcel scale."""
+    ring = geometry["coordinates"][0]
+    pts = ring[:-1] if len(ring) > 1 and ring[0] == ring[-1] else ring
+    if len(pts) < 3:
+        return 0.0
+    lat0 = math.radians(sum(p[1] for p in pts) / len(pts))
+    xy = [
+        (math.radians(lon) * EARTH_RADIUS_M * math.cos(lat0),
+         math.radians(lat) * EARTH_RADIUS_M)
+        for lon, lat in pts
+    ]
+    area2 = 0.0
+    for (x0, y0), (x1, y1) in zip(xy, xy[1:] + xy[:1]):
+        area2 += x0 * y1 - x1 * y0
+    return round(abs(area2) / 2.0 / 10_000.0, 2)
 
 
 # --- weather orchestration ------------------------------------------------
@@ -193,6 +241,7 @@ def evaluate_block(
     tmax_7d = sum(w.tmax for w in last7) / len(last7) if last7 else 0.0
     forecast_rain_3d = sum(e["rain"] for e in forecast[:3])
     drivers = scoring.build_drivers(et0_7d, rain_7d, tmax_7d, forecast_rain_3d)
+    drivers.extend(scoring.build_measured_drivers(*_measured_channels(balance)))
 
     hold_days = fc.hold_days_from_forecast(forecast, lo) if status == "too_wet" else None
     pour_slip = scoring.build_pour_slip(
@@ -200,6 +249,7 @@ def evaluate_block(
     )
     rec = scoring.recommendation(status, stage, pour_slip, deviation)
 
+    mmap = mswp_map()
     response = {
         "block_id": block.id,
         "as_of": as_of.isoformat(),
@@ -212,11 +262,28 @@ def evaluate_block(
         "deviation": round(deviation, 3),
         "score": score,
         "traffic": traffic,
+        "mswp_estimate_mpa": mswp_engine.estimate_mpa(mmap, stage, f),
+        "mswp_band_mpa": mswp_engine.band_mpa(mmap, stage, lo, hi),
         "drivers": drivers,
         "recommendation": rec,
         "pour_slip": pour_slip,
     }
     return Evaluation(block=block, as_of=as_of, balance=balance, forecast=forecast, response=response)
+
+
+def _measured_channels(balance: list[BalanceDay]):
+    """(eta_7d, ndvi, transpiration_deficit_pct) from the trailing week, or Nones
+    when the source carries no ETa/NDVI so the drivers are simply omitted."""
+    last7 = [bd for bd in balance[-7:] if bd.eta is not None]
+    if not last7:
+        latest_ndvi = next((bd.ndvi for bd in reversed(balance) if bd.ndvi is not None), None)
+        return None, latest_ndvi, None
+    eta_7d = sum(bd.eta for bd in last7) / len(last7)
+    etc_sum = sum(bd.etc for bd in last7)
+    eta_sum = sum(bd.eta for bd in last7)
+    deficit_pct = (etc_sum - eta_sum) / etc_sum * 100.0 if etc_sum > 0 else 0.0
+    latest_ndvi = next((bd.ndvi for bd in reversed(balance) if bd.ndvi is not None), None)
+    return eta_7d, latest_ndvi, deficit_pct
 
 
 def evaluate_all(as_of: date, provider, targets=None, kc=None) -> list[Evaluation]:

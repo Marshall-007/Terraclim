@@ -36,8 +36,10 @@ def project_forward(
             onset = w.date
         days_since_harvest = (w.date - onset).days if onset else None
         stage = stage_after(gdd, factor, days_since_harvest)
-        etc = w.et0 * kc_for(kc_curves, stage)
-        depletion_p = clamp(depletion_p + etc - w.rain, 0.0, taw)
+        # Forecast is the modelled layer: ET0 x Kc x Ks (measured ETa is retrospective).
+        ks = stress_coefficient(depletion_p, taw)
+        etc = w.et0 * kc_for(kc_curves, stage) * ks
+        depletion_p = clamp(depletion_p + etc - effective_rain(w.rain), 0.0, taw)
         lo, hi = band_for(targets, stage, style)
         out.append(
             {

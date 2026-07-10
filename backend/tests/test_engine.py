@@ -59,16 +59,20 @@ def test_gdd_below_base_is_dormant():
 def test_depletion_clamps_to_taw_and_zero():
     kc = kc_curves()
     taw = 120.0
-    # High ET, no rain: depletion must saturate at TAW, never exceed it.
+    # High ET, no rain: depletion climbs toward TAW but the FAO-56 Ks throttle keeps
+    # it below the ceiling; it must never exceed TAW.
     weather = make_weather(60, tmax=30.0, tmin=18.0, et0=12.0, rain=0.0)
     phen = build_phenology(weather, factor=1.0)
     balance = compute_balance(weather, phen, kc, taw, {})
     assert max(b.depletion_mm for b in balance) <= taw
-    assert balance[-1].depletion_mm == taw
-    assert balance[-1].depletion_fraction == 1.0
+    assert balance[-1].depletion_fraction >= 0.9  # deep deficit, Ks-limited short of 1.0
 
-    # A soaking rain day drives depletion to the zero floor (no negatives).
-    weather[-1] = DailyWeather(date=weather[-1].date, et0=5.0, rain=500.0, tmax=25.0, tmin=15.0)
+    # Sustained soaking rain (past the 40 mm/day infiltration cap) drives depletion
+    # to the zero floor; it must never go negative.
+    for i in range(4):
+        weather[-1 - i] = DailyWeather(
+            date=weather[-1 - i].date, et0=5.0, rain=90.0, tmax=25.0, tmin=15.0
+        )
     balance = compute_balance(weather, phen, kc, taw, {})
     assert balance[-1].depletion_mm == 0.0
 

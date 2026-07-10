@@ -17,7 +17,7 @@ from pathlib import Path
 
 from app.engine.phenology import build_phenology, variety_factor
 from app.engine.scoring import band_for
-from app.engine.water_balance import clamp, kc_for
+from app.engine.water_balance import clamp, effective_rain, kc_for, stress_coefficient
 from app.providers.fixture import FixtureProvider
 from app.services import load_blocks, season_start, kc_curves, stress_targets
 

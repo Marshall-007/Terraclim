@@ -69,6 +69,27 @@ def build_drivers(et0_7d: float, rain_7d: float, tmax_7d: float, forecast_rain_3
     ]
 
 
+def build_measured_drivers(
+    eta_7d: float | None,
+    ndvi: float | None,
+    transpiration_deficit_pct: float | None,
+) -> list[dict]:
+    """ETa/NDVI-derived drivers, appended only when the data source supplies them."""
+    out: list[dict] = []
+    if eta_7d is not None:
+        out.append({"key": "eta_7d", "label": "7-day actual ET", "value": round(eta_7d, 1),
+                    "unit": "mm/day", "pressure": _pressure(eta_7d, 5.0, 3.5)})
+    if ndvi is not None:
+        # Low vigour is the pressure signal, so invert the thresholds.
+        out.append({"key": "ndvi", "label": "Canopy NDVI", "value": round(ndvi, 2),
+                    "unit": "", "pressure": _pressure(ndvi, 0.45, 0.6, invert=True)})
+    if transpiration_deficit_pct is not None:
+        out.append({"key": "transpiration_deficit_pct", "label": "Transpiration below model",
+                    "value": round(transpiration_deficit_pct, 1), "unit": "%",
+                    "pressure": _pressure(transpiration_deficit_pct, 15.0, 8.0)})
+    return out
+
+
 def build_pour_slip(
     status: str,
     depletion_mm: float,

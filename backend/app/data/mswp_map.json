@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "quantity": "midday stem water potential (MSWP)",
+    "unit": "MPa",
+    "modelled": true,
+    "note": "Modelled MSWP equivalent, not a measured value. Depletion fraction is mapped to a stage-dependent MPa range by piecewise-linear interpolation between anchors. Anchors are literature-plausible RDI thresholds (Deloire/Girona/Williams; premium reds run a deeper pre-veraison to veraison deficit than whites). Calibrate to a block with one pressure-bomb reading — there is no universal fraction->MPa conversion.",
+    "interpolation": "piecewise_linear",
+    "clamp": true
+  },
+  "anchors": {
+    "dormant":      [[0.0, -0.2], [0.6, -0.7], [1.0, -1.1]],
+    "budbreak":     [[0.0, -0.2], [0.35, -0.5], [1.0, -1.0]],
+    "flowering":    [[0.0, -0.3], [0.4, -0.6], [1.0, -1.1]],
+    "fruit_set":    [[0.0, -0.4], [0.45, -0.8], [0.65, -1.0], [1.0, -1.4]],
+    "veraison":     [[0.0, -0.5], [0.35, -1.0], [0.55, -1.2], [1.0, -1.6]],
+    "harvest":      [[0.0, -0.5], [0.35, -1.0], [0.55, -1.2], [1.0, -1.6]],
+    "post_harvest": [[0.0, -0.3], [0.4, -0.7], [1.0, -1.2]]
+  }
+}

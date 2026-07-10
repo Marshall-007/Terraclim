@@ -44,19 +44,22 @@ def block_timeseries(
     history = []
     for bd in ev.balance[-days:]:
         lo, hi = band_for(targets, bd.stage, block.wine_style)
-        history.append(
-            {
-                "date": bd.date.isoformat(),
-                "et0": bd.et0,
-                "etc": bd.etc,
-                "rain": bd.rain,
-                "irrigation_mm": bd.irrigation_mm,
-                "depletion_fraction": bd.depletion_fraction,
-                "band_lo": lo,
-                "band_hi": hi,
-                "stage": bd.stage,
-            }
-        )
+        row = {
+            "date": bd.date.isoformat(),
+            "et0": bd.et0,
+            "etc": bd.etc,
+            "rain": bd.rain,
+            "irrigation_mm": bd.irrigation_mm,
+            "depletion_fraction": bd.depletion_fraction,
+            "band_lo": lo,
+            "band_hi": hi,
+            "stage": bd.stage,
+        }
+        if bd.eta is not None:
+            row["eta"] = bd.eta
+        if bd.ndvi is not None:
+            row["ndvi"] = bd.ndvi
+        history.append(row)
 
     forecast = [
         {
