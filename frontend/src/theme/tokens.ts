@@ -34,11 +34,16 @@ export const color = {
   slateSoft: '#5a6b78',
   slateTint: '#e8ecef',
 
-  // Traffic-light severity (reserved status colors)
-  stable: '#3f7d4e',
+  // Traffic-light severity (reserved status colors).
+  // Values validated with the dataviz palette checker against `surface`:
+  // lightness band, chroma floor, contrast and CVD separation all pass; the
+  // watch/high amber-orange pair sits in the 8-12 dE floor band, which is why
+  // status is never shown as color alone (chips carry labels, too_wet adds a
+  // hatch texture on the map).
+  stable: '#2f8a4c',
   watch: '#c1841c',
-  high: '#d1662f',
-  critical: '#b23330',
+  high: '#d4693a',
+  critical: '#9a2723',
 
   // Tints of the severity colors for soft fills / washes
   stableTint: '#e6eee7',

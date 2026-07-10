@@ -122,19 +122,21 @@ export function GlidePathChart({
             />
             <ReferenceLine
               x={asOf}
-              stroke={color.bordeaux}
+              stroke={color.axis}
               strokeDasharray="3 3"
-              strokeOpacity={0.55}
               label={{
                 value: 'today',
                 position: 'insideTopRight',
-                fill: color.bordeaux,
+                fill: color.inkSoft,
                 fontSize: 10,
               }}
             />
+            {/* Measured and forecast are one measure in two epistemic states:
+                one hue, solid vs dashed, so identity never rests on a
+                color-pair that CVD viewers can't separate. */}
             <Line
               dataKey="hist"
-              stroke={color.slate}
+              stroke={color.bordeaux}
               strokeWidth={2}
               dot={false}
               isAnimationActive={false}
@@ -145,6 +147,7 @@ export function GlidePathChart({
               stroke={color.bordeaux}
               strokeWidth={2}
               strokeDasharray="5 4"
+              strokeOpacity={0.75}
               dot={false}
               isAnimationActive={false}
               connectNulls={false}
@@ -174,13 +177,13 @@ function ChartLegend() {
         Target band
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <span className="inline-block h-[2px] w-5" style={{ background: color.slate }} />
+        <span className="inline-block h-[2px] w-5" style={{ background: color.bordeaux }} />
         Depletion (measured)
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span
           className="inline-block h-0 w-5 border-t-2 border-dashed"
-          style={{ borderColor: color.bordeaux }}
+          style={{ borderColor: color.bordeaux, opacity: 0.75 }}
         />
         14-day forecast
       </span>
