@@ -219,6 +219,46 @@ class DailyWeather:
 | B6 | Môrelig Sauvignon | Sauvignon Blanc | fresh_white | 2.4 | 2.4 |
 | B7 | Leiwater Chardonnay | Chardonnay | white | 1.9 | 2.2 |
 
+## Contract v2 addendum (wave 2 — binding)
+
+### A. ETa + NDVI channels (R12)
+
+`DailyWeather` gains optional `eta: float | None` (measured actual ET, mm) and `ndvi: float | None`. When `eta` is present the balance consumes it directly; modelled `ETc×Ks` remains the forecast/gap-fill layer. `Ks` per FAO-56: `RAW = p × TAW`, `p = 0.45`; `Ks = (TAW − D)/(TAW − RAW)` when `D > RAW` else 1; `ETc_adj = ET0 × Kc × Ks`. Effective rainfall: days < 2 mm ignored; daily infiltration capped at 40 mm.
+- `/api/blocks/{id}/status` gains `"eta_7d"` and `"ndvi"` drivers when data exists, plus `"transpiration_deficit_pct"` (ETa vs ETc divergence) — absent, never null-crash, when no ETa source.
+- `/api/blocks/{id}/timeseries` rows gain optional `eta`, `ndvi`.
+
+### B. Stem water potential display (R3)
+
+`/status` gains `"mswp_estimate_mpa": float` and `"mswp_band_mpa": [lo, hi]` — modelled midday stem water potential equivalent, mapped from depletion fraction per stage (mapping table in `backend/app/data/mswp_map.json`, marked modelled). UI shows MPa alongside depletion fraction.
+
+### C. Pressure-bomb + photo validation (R13 + R17)
+
+- `POST /api/validation/reading` `{block_id, date, mswp_mpa, note?}` → stored to `backend/app/data/validation_readings.json`; returns reading + model value that day + delta.
+- `GET /api/validation/{block_id}` → `{model_series, readings[], reference_series[], agreement: {bias, rmse, n, within_band_pct}}`. `reference_series` comes from the data pack (WaPOR/FruitLook) when present, else `[]` with `"reference_source": "pending_datapack"`.
+- **Photos (R17):** `POST /api/photos` multipart (`block_id`, `image`, optional `note`, `date`) → stores file under `backend/app/data/photos/` (gitignored), analyses it deterministically, returns `{photo_id, block_id, date, url, note, analysis}` where `analysis = {gli_mean, canopy_cover_pct, yellowing_pct, stress_hint: "none"|"mild"|"visible", agrees_with_model: bool}`. GLI = (2G−R−B)/(2G+R+B) over canopy pixels; canopy segmentation via HSV green threshold; yellowing via hue shift. Pillow + numpy, no ML dependency, documented as a screening heuristic (CropX/Tule-style capture, honest math).
+- `GET /api/photos/{block_id}` → list, newest first. `GET /api/photos/file/{photo_id}` serves the image.
+- Frontend: camera capture (`<input capture="environment">` + preview) from Field Mode and Block Detail; per-block photo gallery with analysis chips; photo GLI trend plotted on the Validation screen against model stress. Mock mode ships 2–3 bundled sample canopy photos so the flow demos offline.
+
+### D. Settings / Data Source panel (R11)
+
+- `GET /api/settings` → `{provider, terraclim_ready, token_status: "unset"|"set (••••1234)", cache: {entries, oldest_minutes}, as_of, datapack: {loaded: bool, path?, layers?}}` — token value never returned.
+- `POST /api/settings/provider` `{provider, token?}` → validates with one live test call before accepting; persists to gitignored `backend/app/data/settings.json`; applies without restart; on failure returns `{ok: false, error}`.
+- `POST /api/settings/cache/refresh` → purge + re-warm all blocks; returns per-block ok/fail.
+- `POST /api/settings/demo-date` `{as_of}` → runtime override.
+- Frontend Settings screen per R11 (provider cards, write-only token, Test & Activate, cache refresh, as_of picker) + provider badge in the header.
+
+### E. DataPackProvider (R14)
+
+Third provider reading `backend/app/data/datapack/` (gitignored): GeoTIFF rasters (ETo/ETa/NDVI, rasterio zonal stats over block polygons) and/or CSV per-block series; manifest `datapack.json` describes layers. Missing pack → provider reports not-loaded; factory order: datapack (if loaded) → terraclim (if ready) → open-meteo → synthetic fallback. rasterio is an optional dependency — import lazily; CSV path must work without it.
+
+### F. Traced block polygons (R10)
+
+`blocks.geojson` polygons replaced with hand-traced, irregular, 8–20-vertex parcels following plausible terrain edges at the same Stellenbosch location (no rectangles); properties unchanged; areas recomputed from geometry. Frontend map gains satellite basemap (Esri World Imagery, OSM labels toggle) and a "Trace a block" mode (draw polygon by clicking vertices → `POST /api/blocks` `{name, variety, wine_style, application_rate_mm_h, geometry}` → persisted to blocks store, scored like any block; `DELETE /api/blocks/{id}` for user-created blocks only).
+
+### G. Information-limited backtest (R2)
+
+Backtest recomputed so day-D flags use only data ≤ D plus the forward projection the engine would have had; response gains `"methodology": "information_limited"` and the UI states it. Keep the event-detection narrative honest ("projected breach N days ahead").
+
 ## Conventions (all agents)
 
 - No secrets in git; `.env.example` only. `DEMO_DATE=2026-01-20` is the default demo date.

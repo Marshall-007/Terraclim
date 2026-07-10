@@ -10,7 +10,7 @@ import { Backtest } from './screens/Backtest';
 
 export function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route element={<AppShell />}>
           <Route index element={<Dashboard />} />

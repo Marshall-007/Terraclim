@@ -3,7 +3,11 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { themeColor, color } from './src/theme/tokens';
 
+// GitHub Pages serves the app under /<repo>/, so CI builds set VITE_BASE.
+const base = process.env.VITE_BASE ?? '/';
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     VitePWA({
@@ -18,8 +22,8 @@ export default defineConfig({
         background_color: color.paper,
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
-        scope: '/',
+        start_url: base,
+        scope: base,
         icons: [
           { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
           {
@@ -32,7 +36,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,woff,woff2}'],
-        navigateFallback: '/index.html',
+        navigateFallback: `${base}index.html`,
         runtimeCaching: [
           {
             // Cache the last successful API responses so the app survives offline.

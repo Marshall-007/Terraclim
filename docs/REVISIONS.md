@@ -123,6 +123,12 @@ Per the brief's data notice: TerraClim data, starter files and credentials may n
 - Build days mapped to their run of show: Fri = render ETo/ETa + vigour + stress logic on the real data pack; Sat = recommendation engine + validation panel + alerts + polish; Sun = demo.
 - "Handover-ready" is a judged criterion (Mbulelo): clean README, .env.example, architecture doc, one-command run. Treat repo quality as a feature.
 
+## R17 — Field photo capture with deterministic canopy analysis (HIGH, from Marshall)
+
+**Requirement:** CropX-style photo capability, fully functional and linked to the app. Capture a canopy photo in the field, attach it to the block, get an honest visual-stress read.
+
+**Fix:** Camera capture in Field Mode + Block Detail → upload to backend → per-block gallery. Analysis is deterministic and published-method (Green Leaf Index, canopy cover %, yellowing % via HSV segmentation — Pillow+numpy, no ML dependency), returns a stress hint and an "agrees with model" flag, and the photo GLI trend plots on the Validation screen next to the model. Marketed exactly as what it is: a phone-camera screening check that corroborates the water-balance model — the "prove it in the field" leg of the trust story. Photos stored server-side, gitignored. Full spec: API_CONTRACT.md addendum §C.
+
 ---
 
 ### Application order
