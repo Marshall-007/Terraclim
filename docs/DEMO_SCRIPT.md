@@ -146,15 +146,15 @@ Point at the header badge — **"Data: TerraClim ET-GEO"** — then go straight 
 
 ---
 
-## Beat 8 — Closer + the live data-source flip (4:45–5:00)
+## Beat 8 — Closer + the live data-source control (4:45–5:00)
 
-**Say (look up from the laptop):**
-> "Everything you've seen runs on TerraClim's ET-GEO data pack — you can watch us switch it live."
+**Say (look up from the laptop, point at the badge):**
+> "Everything you've seen runs on TerraClim's ET-GEO data pack — that badge is live, and it's controlled from one screen, not a code deploy."
 
-**Click (optional, if the flip is rehearsed and fast):** Open **Settings / Data source**, paste the token, press **Activate** — the header badge confirms **"Data: TerraClim ET-GEO"**, cache re-warms.
+**Click (optional, if rehearsed and fast):** Open **Settings / Data source**. Show the provider cards (data pack active; TerraClim API / Open-Meteo selectable), paste a token, press **Activate** — the backend validates it live, re-warms the cache, and the header badge holds on **"Data: TerraClim ET-GEO."**
 
 **Say:**
-> "No redeploy, no code change — a Settings screen. TerraClim's terrain-precise science is the foundation; we add the forward-looking decision on top."
+> "No redeploy, no env-file edit — a Settings screen. Hand us a live TerraClim API token and it drops in here the same way. TerraClim's terrain-precise science is the foundation; we add the forward-looking decision on top."
 
 **Final line — say it slowly, then stop:**
 > "Everyone else built a tool that says *water it.* Vino is the one that knows when to say *stop.* **Know when to pour.**"
