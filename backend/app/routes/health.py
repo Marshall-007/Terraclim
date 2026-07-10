@@ -19,6 +19,7 @@ def health(as_of: date = Depends(parse_as_of), provider=Depends(get_provider_dep
         "status": "ok",
         "provider": provider.name,
         "terraclim_ready": provider.terraclim_ready,
+        "datapack_loaded": getattr(provider, "datapack_loaded", False),
         "as_of": as_of.isoformat(),
         "cache_age_minutes": cache_age,
     }

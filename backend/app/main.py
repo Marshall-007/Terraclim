@@ -13,15 +13,18 @@ from .routes import (
     explain,
     health,
     irrigation,
+    photos,
     scenario,
     season_bank,
+    settings,
+    validation,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 app = FastAPI(
     title="Vino API",
-    version="1.0",
+    version="2.0",
     description="Vineyard irrigation intelligence — the Stress Glide Path engine.",
 )
 
@@ -34,7 +37,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for module in (health, blocks, battle_plan, season_bank, scenario, backtest, briefing, irrigation, explain):
+for module in (health, blocks, battle_plan, season_bank, scenario, backtest, briefing,
+               irrigation, explain, validation, photos, settings):
     app.include_router(module.router)
 
 

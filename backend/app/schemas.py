@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+WineStyle = Literal["premium_red", "red", "white", "fresh_white"]
+
 
 class BattlePlanRequest(BaseModel):
     available_hours_per_day: float = Field(gt=0, le=24)
@@ -19,4 +21,30 @@ class ScenarioRequest(BaseModel):
 class IrrigationEvent(BaseModel):
     block_id: str
     date: date
-    mm: float = Field(ge=0)
+    # A single logged application; bounded to a sane vineyard range (mm/day).
+    mm: float = Field(ge=0, le=500)
+
+
+class ValidationReading(BaseModel):
+    block_id: str
+    date: date
+    mswp_mpa: float = Field(ge=-5.0, le=0.0)
+    note: str | None = Field(default=None, max_length=500)
+
+
+class ProviderSwitch(BaseModel):
+    provider: Literal["open-meteo", "terraclim", "datapack"]
+    token: str | None = Field(default=None, max_length=512)
+
+
+class DemoDate(BaseModel):
+    as_of: date
+
+
+class NewBlock(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    variety: str = Field(min_length=1, max_length=60)
+    wine_style: WineStyle
+    application_rate_mm_h: float = Field(gt=0, le=50)
+    taw_mm: float = Field(default=120, gt=0, le=400)
+    geometry: dict

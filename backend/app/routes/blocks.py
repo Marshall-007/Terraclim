@@ -6,7 +6,19 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..deps import get_provider_dep, parse_as_of
 from ..engine.scoring import band_for
-from ..services import evaluate_block, blocks_geojson, kc_curves, load_blocks, stress_targets
+from ..schemas import NewBlock
+from ..services import (
+    blocks_geojson,
+    centroid,
+    evaluate_block,
+    kc_curves,
+    load_blocks,
+    next_user_block_id,
+    polygon_area_ha,
+    read_user_blocks,
+    stress_targets,
+    write_user_blocks,
+)
 
 router = APIRouter(prefix="/api/blocks", tags=["blocks"])
 
@@ -18,9 +30,74 @@ def _find_block(block_id: str):
     raise HTTPException(status_code=404, detail=f"block '{block_id}' not found")
 
 
+def _validate_polygon(geometry: dict) -> dict:
+    if not isinstance(geometry, dict) or geometry.get("type") != "Polygon":
+        raise HTTPException(status_code=400, detail="geometry must be a GeoJSON Polygon")
+    coords = geometry.get("coordinates")
+    if not isinstance(coords, list) or not coords or not isinstance(coords[0], list):
+        raise HTTPException(status_code=400, detail="geometry.coordinates malformed")
+    ring = coords[0]
+    pts = []
+    for p in ring:
+        if (not isinstance(p, (list, tuple)) or len(p) < 2
+                or not all(isinstance(c, (int, float)) for c in p[:2])):
+            raise HTTPException(status_code=400, detail="polygon vertex must be [lon, lat]")
+        lon, lat = float(p[0]), float(p[1])
+        if not (-180.0 <= lon <= 180.0 and -90.0 <= lat <= 90.0):
+            raise HTTPException(status_code=400, detail="polygon vertex out of lon/lat range")
+        pts.append([lon, lat])
+    distinct = {tuple(p) for p in pts}
+    if len(distinct) < 3:
+        raise HTTPException(status_code=400, detail="polygon needs at least 3 distinct vertices")
+    if pts[0] != pts[-1]:
+        pts.append(list(pts[0]))  # close the ring for point-in-polygon
+    return {"type": "Polygon", "coordinates": [pts]}
+
+
 @router.get("")
 def list_blocks():
     return blocks_geojson()
+
+
+@router.post("", status_code=201)
+def create_block(body: NewBlock):
+    geometry = _validate_polygon(body.geometry)
+    area_ha = polygon_area_ha(geometry)
+    if area_ha <= 0:
+        raise HTTPException(status_code=400, detail="polygon has zero area")
+    block_id = next_user_block_id()
+    feature = {
+        "type": "Feature",
+        "geometry": geometry,
+        "properties": {
+            "id": block_id,
+            "name": body.name.strip(),
+            "variety": body.variety.strip(),
+            "wine_style": body.wine_style,
+            "area_ha": area_ha,
+            "application_rate_mm_h": body.application_rate_mm_h,
+            "taw_mm": body.taw_mm,
+            "user_created": True,
+        },
+    }
+    store = read_user_blocks()
+    store["features"].append(feature)
+    write_user_blocks(store)
+    lon, lat = centroid(geometry)
+    return {"ok": True, "id": block_id, "feature": feature, "centroid": [round(lon, 6), round(lat, 6)]}
+
+
+@router.delete("/{block_id}")
+def delete_block(block_id: str):
+    if not block_id.startswith("U"):
+        raise HTTPException(status_code=400, detail="only user-created blocks (U*) can be deleted")
+    store = read_user_blocks()
+    remaining = [f for f in store["features"] if f["properties"].get("id") != block_id]
+    if len(remaining) == len(store["features"]):
+        raise HTTPException(status_code=404, detail=f"user block '{block_id}' not found")
+    store["features"] = remaining
+    write_user_blocks(store)
+    return {"ok": True, "deleted": block_id}
 
 
 @router.get("/{block_id}/status")

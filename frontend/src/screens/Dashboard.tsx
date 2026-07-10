@@ -152,6 +152,11 @@ export function Dashboard() {
               states={states}
               selectedId={selectedId}
               onSelect={select}
+              allowTrace
+              onBlocksChanged={() => {
+                blocksQ.reload();
+                briefingQ.reload();
+              }}
               className="h-[380px] border-0 lg:h-[560px]"
             />
           )}
@@ -182,7 +187,14 @@ export function Dashboard() {
         </div>
       </div>
 
-      <BlockDetailPanel block={selectedBlock} onClose={clearSelect} />
+      <BlockDetailPanel
+        block={selectedBlock}
+        onClose={clearSelect}
+        onBlocksChanged={() => {
+          blocksQ.reload();
+          briefingQ.reload();
+        }}
+      />
     </div>
   );
 }

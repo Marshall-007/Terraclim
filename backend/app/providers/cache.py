@@ -54,6 +54,26 @@ class DiskCache:
         newest = max(f.stat().st_mtime for f in files)
         return int((time.time() - newest) / 60)
 
+    def oldest_age_minutes(self) -> int | None:
+        files = list(self.directory.glob("*.json"))
+        if not files:
+            return None
+        oldest = min(f.stat().st_mtime for f in files)
+        return int((time.time() - oldest) / 60)
+
+    def entries(self) -> int:
+        return len(list(self.directory.glob("*.json")))
+
+    def purge(self) -> int:
+        removed = 0
+        for f in self.directory.glob("*.json"):
+            try:
+                f.unlink()
+                removed += 1
+            except OSError:
+                pass
+        return removed
+
 
 class CachedProvider:
     """Wraps a provider so every call flows through the disk cache."""

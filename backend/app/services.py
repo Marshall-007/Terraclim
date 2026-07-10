@@ -153,6 +153,14 @@ def write_user_blocks(fc_json: dict) -> None:
     _USER_BLOCKS_PATH.write_text(json.dumps(fc_json, indent=2))
 
 
+def next_user_block_id() -> str:
+    existing = {f["properties"].get("id", "") for f in read_user_blocks()["features"]}
+    n = 1
+    while f"U{n}" in existing:
+        n += 1
+    return f"U{n}"
+
+
 def polygon_area_ha(geometry: dict) -> float:
     """Spherical-approximation planar area of a lon/lat polygon ring, in hectares.
     Equirectangular projection about the ring centroid — accurate at parcel scale."""
@@ -170,6 +178,77 @@ def polygon_area_ha(geometry: dict) -> float:
     for (x0, y0), (x1, y1) in zip(xy, xy[1:] + xy[:1]):
         area2 += x0 * y1 - x1 * y0
     return round(abs(area2) / 2.0 / 10_000.0, 2)
+
+
+# --- validation readings --------------------------------------------------
+
+_VALIDATION_PATH = DATA_DIR / "validation_readings.json"
+
+
+def read_validation_readings() -> list[dict]:
+    try:
+        return json.loads(_VALIDATION_PATH.read_text())
+    except (ValueError, OSError):
+        return []
+
+
+def append_validation_reading(reading: dict) -> None:
+    rows = read_validation_readings()
+    rows.append(reading)
+    _VALIDATION_PATH.write_text(json.dumps(rows, indent=2))
+
+
+def validation_for_block(block_id: str) -> list[dict]:
+    return [r for r in read_validation_readings() if r.get("block_id") == block_id]
+
+
+# --- field photos ---------------------------------------------------------
+
+PHOTOS_DIR = DATA_DIR / "photos"
+_PHOTO_INDEX = PHOTOS_DIR / "index.json"
+
+
+def read_photo_index() -> list[dict]:
+    try:
+        return json.loads(_PHOTO_INDEX.read_text())
+    except (ValueError, OSError):
+        return []
+
+
+def _write_photo_index(rows: list[dict]) -> None:
+    PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
+    _PHOTO_INDEX.write_text(json.dumps(rows, indent=2))
+
+
+def store_photo(photo_id: str, jpeg_bytes: bytes, meta: dict) -> dict:
+    """Persist the re-encoded JPEG under a server-generated id and index its
+    metadata. The filename derives only from the id, never from user input."""
+    PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"{photo_id}.jpg"
+    (PHOTOS_DIR / filename).write_bytes(jpeg_bytes)
+    record = {**meta, "photo_id": photo_id, "filename": filename}
+    rows = read_photo_index()
+    rows.append(record)
+    _write_photo_index(rows)
+    return record
+
+
+def photos_for_block(block_id: str) -> list[dict]:
+    rows = [r for r in read_photo_index() if r.get("block_id") == block_id]
+    rows.sort(key=lambda r: r.get("created_at", ""), reverse=True)
+    return rows
+
+
+def photo_record(photo_id: str) -> dict | None:
+    """Look up a photo strictly by id (no path is ever built from user input)."""
+    for r in read_photo_index():
+        if r.get("photo_id") == photo_id:
+            return r
+    return None
+
+
+def photo_path(record: dict) -> Path:
+    return PHOTOS_DIR / record["filename"]
 
 
 # --- weather orchestration ------------------------------------------------

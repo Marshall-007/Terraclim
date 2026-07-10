@@ -101,6 +101,11 @@
 .leaflet-tooltip.vino-map-label::before {
   display: none;
 }
+/* Trace-a-block mode: crosshair over the whole map surface. */
+.vino-tracing .leaflet-container,
+.vino-tracing .leaflet-interactive {
+  cursor: crosshair !important;
+}
 
 /* thin, quiet scrollbars */
 .scroll-thin {
