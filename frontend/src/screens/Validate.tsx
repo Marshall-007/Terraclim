@@ -135,7 +135,9 @@ function ModelTab({ blockId }: { blockId: string }) {
   const statusQ = useAsync(() => api.getBlockStatus(blockId), [blockId]);
   const photosQ = useAsync(() => api.getPhotos(blockId), [blockId]);
 
-  if (valQ.loading) {
+  // Full-screen loading only on first fetch — a reload after logging a
+  // reading must not unmount the form (it would wipe the delta feedback).
+  if (valQ.loading && !valQ.data) {
     return (
       <div className="card">
         <LoadingPanel label="Comparing model and field" />

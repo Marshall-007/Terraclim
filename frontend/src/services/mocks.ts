@@ -87,6 +87,7 @@ const clamp = (v: number, lo: number, hi: number): number =>
   Math.min(hi, Math.max(lo, v));
 const round1 = (v: number): number => Math.round(v * 10) / 10;
 const round2 = (v: number): number => Math.round(v * 100) / 100;
+const round3 = (v: number): number => Math.round(v * 1000) / 1000;
 
 // ---------- date helpers ----------
 const toDate = (iso: string): Date => {
@@ -123,6 +124,11 @@ interface BlockDef {
   eta7: number;
   ndvi: number;
   deficit: number;
+  /** Engine-verified pour-slip overrides (the Ks-adjusted engine differs
+   * slightly from the naive band-midpoint formula). */
+  pourMm?: number;
+  window?: string;
+  holdDays?: number;
   user_created?: boolean;
   geometry?: number[][][];
 }
@@ -165,68 +171,68 @@ const v2drivers = (eta7: number, ndvi: number, deficitPct: number): Driver[] => 
   },
 ];
 
-// Demo farm spread (R6): the flagship premium red B1 reads too_wet — a seeded
-// 28 mm over-irrigation event — so the "stop watering your Cabernet" climax is
-// deterministic. B4 is the top too-dry block (28.1 mm behind its véraison
-// band); B5 is the second wet block; the rest hold or drift mildly.
+// Demo farm spread — pinned to the live engine's FAO-56 Ks-adjusted actuals
+// so mock mode (the public Pages demo) matches the backend and docs exactly.
+// R6 climax: the flagship premium red B1 reads too_wet after a seeded 28 mm
+// over-irrigation event; B4 is the top too-dry block.
 const BLOCKS: BlockDef[] = [
   {
     id: 'B1', name: 'Bosberg Cabernet', variety: 'Cabernet Sauvignon',
     wine_style: 'premium_red', area_ha: 2.8, rate: 2.0, center: [18.8605, -33.9305],
-    stage: 'veraison', band: [0.35, 0.55], f: 0.24, status: 'too_wet',
-    score: 54, traffic: 'high', gdd: 1455.2,
+    stage: 'veraison', band: [0.35, 0.55], f: 0.108, status: 'too_wet',
+    score: 48, traffic: 'watch', gdd: 1455.2, holdDays: 7,
     drivers: drivers(4.6, 24.0, 26.5, 9.0, ['low', 'low', 'low', 'low']),
     eta7: 3.3, ndvi: 0.82, deficit: 0,
   },
   {
     id: 'B2', name: 'Skaliekop Shiraz', variety: 'Shiraz',
     wine_style: 'premium_red', area_ha: 3.2, rate: 1.8, center: [18.8712, -33.9302],
-    stage: 'veraison', band: [0.35, 0.55], f: 0.63, status: 'too_dry',
-    score: 45, traffic: 'watch', gdd: 1362.8,
-    drivers: drivers(6.2, 1.0, 33.5, 0.0, ['high', 'moderate', 'high', 'moderate']),
-    eta7: 3.8, ndvi: 0.66, deficit: 12,
+    stage: 'veraison', band: [0.35, 0.55], f: 0.6, status: 'too_dry',
+    score: 21, traffic: 'stable', gdd: 1362.8,
+    drivers: drivers(6.0, 2.0, 32.8, 0.0, ['moderate', 'moderate', 'high', 'moderate']),
+    eta7: 3.9, ndvi: 0.7, deficit: 7,
   },
   {
     id: 'B3', name: 'Rivierkant Merlot', variety: 'Merlot',
     wine_style: 'red', area_ha: 2.1, rate: 2.2, center: [18.8808, -33.9312],
     stage: 'veraison', band: [0.35, 0.55], f: 0.45, status: 'on_track',
-    score: 12, traffic: 'stable', gdd: 1288.4,
+    score: 11, traffic: 'stable', gdd: 1288.4,
     drivers: drivers(5.2, 6.0, 29.8, 3.0, ['moderate', 'moderate', 'moderate', 'moderate']),
     eta7: 3.4, ndvi: 0.75, deficit: 3,
   },
   {
-    // f chosen so depletion_mm = 82.1, needed_mm = 28.1, runtime = 14.1 h —
-    // the contract's worked example, and the demo's top dry block.
+    // Engine-verified: depletion 85.6 mm, deviation 0.163, pour 28.9 mm / 14.5 h.
     id: 'B4', name: 'Windberg Pinotage', variety: 'Pinotage',
     wine_style: 'red', area_ha: 1.8, rate: 2.0, center: [18.8618, -33.9382],
-    stage: 'veraison', band: [0.35, 0.55], f: 0.6842, status: 'too_dry',
-    score: 61, traffic: 'high', gdd: 1252.6,
-    drivers: drivers(6.5, 0.6, 34.6, 0.0, ['high', 'high', 'high', 'high']),
-    eta7: 3.4, ndvi: 0.62, deficit: 19,
+    stage: 'veraison', band: [0.35, 0.55], f: 0.713, status: 'too_dry',
+    score: 55, traffic: 'high', gdd: 1252.6,
+    pourMm: 28.9, window: 'next two nights',
+    drivers: drivers(6.3, 0.6, 34.6, 0.0, ['high', 'high', 'high', 'high']),
+    eta7: 3.6, ndvi: 0.71, deficit: 17.8,
   },
   {
     id: 'B5', name: 'Kloofstroom Chenin', variety: 'Chenin Blanc',
     wine_style: 'white', area_ha: 3.6, rate: 2.4, center: [18.8724, -33.9392],
-    stage: 'veraison', band: [0.3, 0.5], f: 0.18, status: 'too_wet',
-    score: 47, traffic: 'watch', gdd: 1241.0,
-    drivers: drivers(4.4, 26.5, 26.1, 11.0, ['low', 'low', 'low', 'low']),
-    eta7: 3.2, ndvi: 0.84, deficit: 0,
+    stage: 'veraison', band: [0.3, 0.5], f: 0.41, status: 'on_track',
+    score: 8, traffic: 'stable', gdd: 1241.0,
+    drivers: drivers(5.0, 6.0, 29.5, 8.0, ['moderate', 'moderate', 'moderate', 'low']),
+    eta7: 3.7, ndvi: 0.78, deficit: 2,
   },
   {
     id: 'B6', name: 'Môrelig Sauvignon', variety: 'Sauvignon Blanc',
     wine_style: 'fresh_white', area_ha: 2.4, rate: 2.4, center: [18.8812, -33.9402],
-    stage: 'harvest', band: [0.25, 0.4], f: 0.45, status: 'too_dry',
-    score: 33, traffic: 'watch', gdd: 1472.6,
-    drivers: drivers(6.1, 1.5, 33.0, 0.0, ['high', 'moderate', 'high', 'high']),
-    eta7: 3.0, ndvi: 0.68, deficit: 10,
+    stage: 'harvest', band: [0.25, 0.4], f: 0.34, status: 'on_track',
+    score: 11, traffic: 'stable', gdd: 1472.6,
+    drivers: drivers(5.4, 4.0, 30.0, 2.0, ['moderate', 'moderate', 'moderate', 'moderate']),
+    eta7: 3.2, ndvi: 0.72, deficit: 4,
   },
   {
     id: 'B7', name: 'Leiwater Chardonnay', variety: 'Chardonnay',
     wine_style: 'white', area_ha: 1.9, rate: 2.2, center: [18.8662, -33.9468],
-    stage: 'veraison', band: [0.3, 0.5], f: 0.42, status: 'on_track',
-    score: 14, traffic: 'stable', gdd: 1207.3,
-    drivers: drivers(5.4, 5.0, 30.2, 3.0, ['moderate', 'moderate', 'moderate', 'moderate']),
-    eta7: 3.6, ndvi: 0.75, deficit: 4,
+    stage: 'veraison', band: [0.3, 0.5], f: 0.54, status: 'too_dry',
+    score: 19, traffic: 'stable', gdd: 1207.3,
+    drivers: drivers(5.8, 2.5, 31.5, 1.0, ['moderate', 'moderate', 'moderate', 'moderate']),
+    eta7: 3.6, ndvi: 0.73, deficit: 6,
   },
 ];
 
@@ -358,7 +364,7 @@ const mid = (band: TargetBand): number => (band[0] + band[1]) / 2;
 
 function pourSlip(def: BlockDef): PourSlip {
   if (def.status === 'too_wet') {
-    const holdDays = def.id === 'B5' ? 6 : 5;
+    const holdDays = def.holdDays ?? 6;
     return {
       type: 'hold',
       needed_mm: 0,
@@ -368,47 +374,51 @@ function pourSlip(def: BlockDef): PourSlip {
       hold_days: holdDays,
     };
   }
-  const needed = Math.max(0, (def.f - mid(def.band)) * TAW);
+  // Per-block override carries the engine's Ks-adjusted figure where the
+  // naive band-midpoint formula would drift from the verified actuals.
+  const needed = def.pourMm ?? Math.max(0, (def.f - mid(def.band)) * TAW);
   const runtime = round1(needed / def.rate);
   return {
     type: 'pour',
     needed_mm: round1(needed),
     runtime_hours: runtime,
-    window: needed > 0.5 ? 'tonight' : 'optional',
+    window: def.window ?? (needed > 0.5 ? 'tonight' : 'optional'),
     next_check: addDays(AS_OF, def.status === 'too_dry' ? 3 : 5),
     hold_days: null,
   };
 }
 
 const RECOMMENDATION: Record<string, string> = {
-  B1: 'Stop watering Bosberg Cabernet. After the 28 mm over-irrigation it sits 0.11 wetter than its véraison band — more water now dilutes the flagship red and drives canopy vigour. Hold ~5 days for ETc to dry it back into band.',
-  B2: 'Skaliekop Shiraz is drifting 0.08 past its véraison band — apply 22 mm (12.0 h drip over two nights) before the deficit compounds.',
+  B1: 'Stop watering Bosberg Cabernet. After the 28 mm over-irrigation it sits 0.24 wetter than its véraison band — more water now dilutes the flagship red and drives excess canopy vigor. Hold ~7 days for ETc to dry it back into band.',
+  B2: 'Skaliekop Shiraz is drifting 0.05 past its véraison band — one 18 mm set (10.0 h drip) brings it back to midpoint.',
   B3: 'Rivierkant Merlot is on its véraison glide path. No irrigation needed; recheck 2026-01-24.',
-  B4: 'Apply 28 mm (14.1 h drip, split across two nights) to bring Windberg Pinotage back onto its véraison glide path — the driest block on the farm.',
-  B5: 'Stop watering Kloofstroom Chenin. At 0.18 depletion it is 0.12 too wet — excess water in véraison swells berries and dilutes flavour. Hold ~6 days for ETc to dry it back into band.',
-  B6: 'Môrelig Sauvignon is drifting dry into harvest. A measured 15 mm (6.3 h) tonight holds fruit weight without over-diluting.',
-  B7: 'Leiwater Chardonnay sits mid-band in véraison. Optional 2 mm top-up; otherwise recheck 2026-01-25.',
+  B4: 'Apply 29 mm (14.5 h drip, split across the next two nights) to bring Windberg Pinotage back onto its véraison glide path — the driest block on the farm.',
+  B5: 'Kloofstroom Chenin sits mid-band in véraison with 8 mm of rain forecast — no irrigation this cycle; recheck 2026-01-25.',
+  B6: 'Môrelig Sauvignon is holding its harvest band. No irrigation needed; recheck 2026-01-24.',
+  B7: 'Leiwater Chardonnay is edging past its véraison band — a light 17 mm (7.6 h) tonight returns it to midpoint.',
 };
 
 /**
  * Depletion fraction → modelled midday stem water potential equivalent (R3).
- * Linear mapping calibrated so the premium-red véraison band [0.35, 0.55]
- * lands on the literature RDI target of −1.0 to −1.2 MPa. Marked "modelled"
- * everywhere it is shown; the backend reads the real table from mswp_map.json.
+ * Estimate slope/intercept fitted to the engine's Ks-adjusted mswp_map.json
+ * (B4: f 0.713 → −1.34 MPa; B1: f 0.108 → −0.65 MPa). Band targets keep the
+ * literature RDI anchors, so the premium-red véraison band [0.35, 0.55] reads
+ * [−1.2, −1.0] MPa. Marked "modelled" everywhere it is shown.
  */
-export const mswpOfFraction = (f: number): number => round2(-(0.65 + f));
+export const mswpOfFraction = (f: number): number =>
+  round2(-(0.527 + 1.1405 * f));
 
 const mswpBand = (band: TargetBand): [number, number] => [
-  mswpOfFraction(band[0]),
-  mswpOfFraction(band[1]),
+  round2(-(0.65 + band[1])),
+  round2(-(0.65 + band[0])),
 ];
 
 function statusOf(def: BlockDef): BlockStatus {
   const deviation =
     def.status === 'too_dry'
-      ? round2(def.f - def.band[1])
+      ? round3(def.f - def.band[1])
       : def.status === 'too_wet'
-        ? round2(def.f - def.band[0])
+        ? round3(def.f - def.band[0])
         : 0;
   return {
     block_id: def.id,
@@ -549,12 +559,12 @@ export function mockTimeseries(id: string, days = 45): Timeseries {
 // ---------- briefing ----------
 const HEADLINE: Record<string, string> = {
   B1: 'Too wet — over-irrigated premium red; hold water before dilution.',
-  B2: 'Drifting dry — 0.08 past band; catch up over two nights.',
+  B2: 'Drifting dry — 0.05 past band; one 10 h set brings it back.',
   B3: 'On track in véraison.',
-  B4: 'Driest on the farm — 28 mm behind its band; water tonight.',
-  B5: 'Too wet — hold water, berries are swelling.',
-  B6: 'Drifting dry into harvest — a light top-up holds fruit weight.',
-  B7: 'Sitting on the véraison glide path.',
+  B4: 'Driest on the farm — 29 mm behind its band; water over the next two nights.',
+  B5: 'Mid-band in véraison; forecast rain covers the next days.',
+  B6: 'On track through harvest.',
+  B7: 'Edging past its véraison band — light top-up tonight.',
 };
 
 export function mockBriefing(): Briefing {
@@ -573,7 +583,7 @@ export function mockBriefing(): Briefing {
           `Traced block holding its ${d.stage.replace('_', ' ')} glide path.`,
       })),
     farm_summary:
-      'Windberg Pinotage tops the dry list — 28 mm behind its véraison band, water tonight. Bosberg Cabernet is over-watered: hold the premium red before dilution costs quality, and Kloofstroom Chenin reads wet too. Two blocks are holding their glide path.',
+      '3 block(s) need water, 1 too wet, 3 on track. Peak pressure: B4 (55).',
   };
 }
 
@@ -638,10 +648,10 @@ export function mockBattlePlan(req: BattlePlanRequest): BattlePlan {
     block_id: d.id,
     reason:
       d.status === 'too_wet'
-        ? d.id === 'B1'
-          ? 'Over-irrigated premium red — watering now compounds the dilution risk.'
-          : 'Currently too wet — irrigation would push it further off path.'
-        : 'On the glide path near band midpoint; no water needed this cycle.',
+        ? 'Currently too wet after over-irrigation — watering now compounds the dilution risk.'
+        : d.id === 'B5'
+          ? '8 mm rain forecast within 48 h keeps véraison depletion in band without irrigation.'
+          : 'On the glide path near band midpoint; no water needed this cycle.',
   }));
 
   const blocksWatered = new Set(
@@ -650,15 +660,9 @@ export function mockBattlePlan(req: BattlePlanRequest): BattlePlan {
   const totalHours = round1(
     plan.reduce((s, d) => s + d.entries.reduce((a, e) => a + e.hours, 0), 0),
   );
-  // Water saved = what a conventional "water the low readings" schedule would have
-  // poured onto the blocks we deliberately skipped.
-  const savedMm: Record<string, number> = { B1: 8, B5: 8, B3: 4, B7: 3 };
-  const waterSaved = Math.round(
-    BLOCKS.filter((d) => d.status !== 'too_dry').reduce(
-      (s, d) => s + (savedMm[d.id] ?? 0) * d.area_ha * 10,
-      0,
-    ) / 5,
-  ) * 5;
+  // Water saved vs a conventional "water the low readings" schedule —
+  // pinned to the engine's verified demo figure (contract worked example).
+  const waterSaved = 41;
 
   return {
     as_of: AS_OF,
@@ -748,7 +752,7 @@ function scoreCanonical(
   const status: Status = devNow > 0 ? 'too_dry' : devNow < 0 ? 'too_wet' : 'on_track';
   const traffic: Traffic =
     score <= 25 ? 'stable' : score <= 50 ? 'watch' : score <= 75 ? 'high' : 'critical';
-  return { status, deviation: round2(devNow), score, traffic };
+  return { status, deviation: round3(devNow), score, traffic };
 }
 
 const SCENARIO_REC: Record<Status, string> = {
@@ -791,26 +795,26 @@ export function mockBacktest(): Backtest {
     {
       date: '2025-12-04',
       type: 'heat_spike',
-      blocks_flagged: ['B1', 'B2', 'B4'],
-      lead_days: 6,
+      blocks_flagged: ['B5', 'B6', 'B7'],
+      lead_days: 8,
       narrative:
-        'Engine projected B1 and B2 breaching their bands six days before the 38 °C spike on 4 December.',
+        'On data available at the time, the engine projected B7 breaching its band 8 days before the 38°C spike.',
     },
     {
       date: '2026-01-08',
       type: 'heat_spike',
-      blocks_flagged: ['B1', 'B2', 'B5', 'B6'],
+      blocks_flagged: ['B2', 'B4', 'B7'],
       lead_days: 4,
       narrative:
-        'Four blocks flagged four days ahead of the 36 °C event on 8 January.',
+        'Three blocks flagged four days ahead of the 36 °C event on 8 January.',
     },
     {
       date: '2026-01-13',
       type: 'wet_swing',
-      blocks_flagged: ['B3', 'B5'],
+      blocks_flagged: ['B1'],
       lead_days: 3,
       narrative:
-        '12 mm of rain on 13 January pushed B3 and B5 below their bands; the engine had flagged over-watering risk three days prior.',
+        '12 mm of rain on 13 January on top of a logged 28 mm irrigation pushed B1 below its band; the engine had flagged over-watering risk three days prior.',
     },
   ];
 
@@ -976,12 +980,14 @@ function seededReadings(id: string): ValidationReading[] {
 function agreementOf(id: string, readings: ValidationReading[]) {
   if (!readings.length) return { bias: 0, rmse: 0, n: 0, within_band_pct: 0 };
   const def = byId(id);
-  const [bandLoMpa, bandHiMpa] = [mswpOfFraction(def.band[0]), mswpOfFraction(def.band[1])];
+  const band = mswpBand(def.band);
+  const bandMin = Math.min(band[0], band[1]);
+  const bandMax = Math.max(band[0], band[1]);
   const deltas = readings.map((r) => r.delta_mpa);
   const bias = deltas.reduce((s, d) => s + d, 0) / deltas.length;
   const rmse = Math.sqrt(deltas.reduce((s, d) => s + d * d, 0) / deltas.length);
   const within = readings.filter(
-    (r) => r.mswp_mpa <= bandLoMpa && r.mswp_mpa >= bandHiMpa,
+    (r) => r.mswp_mpa >= bandMin && r.mswp_mpa <= bandMax,
   ).length;
   return {
     bias: round2(bias),
@@ -1066,7 +1072,34 @@ interface PhotoSeed {
 }
 
 const PHOTO_SEEDS: Record<string, PhotoSeed[]> = {
+  // B1 is the over-irrigated block: a lush, vigorous canopy corroborates the
+  // model's too-wet read.
   B1: [
+    {
+      daysAgo: 9,
+      note: 'Dense canopy after the irrigation run.',
+      analysis: {
+        gli_mean: 0.22,
+        canopy_cover_pct: 76,
+        yellowing_pct: 2,
+        stress_hint: 'none',
+        agrees_with_model: true,
+      },
+    },
+    {
+      daysAgo: 2,
+      note: 'Vigorous lateral growth — hedging soon.',
+      analysis: {
+        gli_mean: 0.25,
+        canopy_cover_pct: 81,
+        yellowing_pct: 2,
+        stress_hint: 'none',
+        agrees_with_model: true,
+      },
+    },
+  ],
+  // B4 is the driest block: declining GLI and visible stress track the model.
+  B4: [
     {
       daysAgo: 14,
       note: 'Row 12, western edge.',
@@ -1093,23 +1126,10 @@ const PHOTO_SEEDS: Record<string, PhotoSeed[]> = {
   B5: [
     {
       daysAgo: 6,
-      note: 'Vigorous growth after the rain week.',
-      analysis: {
-        gli_mean: 0.24,
-        canopy_cover_pct: 79,
-        yellowing_pct: 2,
-        stress_hint: 'none',
-        agrees_with_model: true,
-      },
-    },
-  ],
-  B4: [
-    {
-      daysAgo: 9,
-      note: null,
+      note: 'Healthy canopy after the rain week.',
       analysis: {
         gli_mean: 0.21,
-        canopy_cover_pct: 70,
+        canopy_cover_pct: 72,
         yellowing_pct: 3,
         stress_hint: 'none',
         agrees_with_model: true,

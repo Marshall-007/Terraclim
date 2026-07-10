@@ -22,10 +22,13 @@ export const fmtSigned = (n: number, digits = 0): string =>
 export const fmtMpa = (mpa: number): string =>
   `${mpa < 0 ? '−' : ''}${Math.abs(mpa).toFixed(2)} MPa`;
 
-/** −1.00 to −1.20 MPa */
+/**
+ * −1.00 to −1.20 MPa — always reads from the wetter (less negative) target to
+ * the drier one, regardless of the API's array ordering.
+ */
 export const fmtMpaBand = (band: [number, number]): string => {
   const one = (v: number) => `${v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}`;
-  return `${one(band[0])} to ${one(band[1])} MPa`;
+  return `${one(Math.max(band[0], band[1]))} to ${one(Math.min(band[0], band[1]))} MPa`;
 };
 
 const MONTHS = [

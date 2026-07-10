@@ -94,7 +94,7 @@ function Verdict({ id }: { id: string }) {
               <span className="ml-1 text-3xl">h</span>
             </div>
             <p className="mt-3 text-base" style={{ color: color.ink }}>
-              Pour tonight · {fmtMm(s.pour_slip.needed_mm)}
+              Pour {fmtMm(s.pour_slip.needed_mm)} · {s.pour_slip.window}
             </p>
           </>
         )}
