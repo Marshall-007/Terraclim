@@ -80,41 +80,42 @@ GeoJSON FeatureCollection. Feature properties:
 
 ### `GET /api/blocks/{id}/status`
 
-Worked example: **B4 Windberg Pinotage** (variety factor 1.00, so veraison begins at GDD 1150 unscaled — the numbers below are exact). Demo-canonical block states: **B4 = top too-dry**, **B1 Bosberg Cabernet = too-wet** (seeded ~28 mm over-irrigation per R6 — the "stop watering your Cabernet" climax), enforced identically in the live seed and the frontend mocks.
+Worked example: **B4 Windberg Pinotage** (variety factor 1.00, so veraison begins at GDD 1150 unscaled). Demo-canonical block states: **B4 = top too-dry**, **B1 Bosberg Cabernet = too-wet** (seeded ~28 mm over-irrigation per R6 — the "stop watering your Cabernet" climax), enforced identically in the live seed and the frontend mocks. The JSON below is the engine's actual output on the deterministic demo seed (`as_of=2026-01-20`) — not a hand-worked illustration.
 
 ```json
 {
   "block_id": "B4", "as_of": "2026-01-20",
-  "stage": "veraison", "gdd": 1231.5,
-  "depletion_mm": 82.1, "depletion_fraction": 0.68,
+  "stage": "veraison", "gdd": 1582.8,
+  "depletion_mm": 85.6, "depletion_fraction": 0.713,
   "target_band": [0.35, 0.55],
-  "status": "too_dry", "deviation": 0.13, "score": 61, "traffic": "high",
+  "status": "too_dry", "deviation": 0.163, "score": 55, "traffic": "high",
+  "mswp_estimate_mpa": -1.34, "mswp_band_mpa": [-1.2, -1.0],
   "drivers": [
-    { "key": "et0_7d", "label": "7-day ET0", "value": 6.1, "unit": "mm/day", "pressure": "high" },
-    { "key": "rain_7d", "label": "7-day rainfall", "value": 1.2, "unit": "mm", "pressure": "high" },
-    { "key": "tmax_7d", "label": "7-day max temp", "value": 33.4, "unit": "°C", "pressure": "high" },
-    { "key": "forecast_rain_3d", "label": "Rain next 3 days", "value": 0.0, "unit": "mm", "pressure": "high" }
+    { "key": "et0_7d", "label": "7-day ET0", "value": 6.3, "unit": "mm/day", "pressure": "high" },
+    { "key": "eta_7d", "label": "7-day ETa", "value": 3.6, "unit": "mm/day", "pressure": "high" },
+    { "key": "ndvi", "label": "NDVI", "value": 0.71, "unit": "", "pressure": "medium" },
+    { "key": "transpiration_deficit_pct", "label": "Transpiration deficit", "value": 17.8, "unit": "%", "pressure": "high" }
   ],
-  "recommendation": "Apply 28 mm (14.1 h drip, split over two nights) to return to the veraison glide path.",
+  "recommendation": "Apply 28.9 mm (14.5 h drip, split over two nights) to return to the veraison glide path.",
   "pour_slip": {
-    "type": "pour", "needed_mm": 28.1, "runtime_hours": 14.1,
+    "type": "pour", "needed_mm": 28.9, "runtime_hours": 14.5,
     "window": "next two nights", "next_check": "2026-01-23", "hold_days": null
   }
 }
 ```
-For a too-wet block: `"status": "too_wet"`, `pour_slip.type = "hold"`, `needed_mm = 0`, `hold_days` set, recommendation explains dilution/vigor risk.
+For a too-wet block — **B1 Bosberg Cabernet** on the same demo seed: `"status": "too_wet"`, `"depletion_fraction": 0.108`, `"deviation": -0.242`, `"score": 48`, `"mswp_estimate_mpa": -0.65`, `pour_slip.type = "hold"`, `needed_mm = 0`, `hold_days = 7`, recommendation explains that watering now risks dilution and excess vigor.
 
 ### `GET /api/blocks/{id}/timeseries?days=45`
 ```json
 {
-  "block_id": "B1",
+  "block_id": "B4",
   "history": [
     { "date": "2026-01-01", "et0": 5.8, "etc": 4.1, "rain": 0.0, "irrigation_mm": 0,
       "depletion_fraction": 0.51, "band_lo": 0.35, "band_hi": 0.55, "stage": "veraison" }
   ],
   "forecast": [
     { "date": "2026-01-21", "et0": 6.2, "etc": 4.3, "rain": 0.0,
-      "depletion_fraction_projected": 0.71, "band_lo": 0.35, "band_hi": 0.55 }
+      "depletion_fraction_projected": 0.73, "band_lo": 0.35, "band_hi": 0.55 }
   ]
 }
 ```
@@ -130,16 +131,16 @@ Response:
   "as_of": "2026-01-20",
   "plan": [
     { "day": "2026-01-20", "entries": [
-      { "block_id": "B4", "hours": 4.5, "mm_applied": 9.0,
+      { "block_id": "B4", "hours": 6.0, "mm_applied": 12.0,
         "reason": "Highest glide-path deviation (too dry) in veraison; no rain forecast 5 days." }
     ]},
     { "day": "2026-01-21", "entries": [] }
   ],
   "skipped": [
     { "block_id": "B5", "reason": "12 mm rain forecast Thursday closes the deficit without irrigation." },
-    { "block_id": "B3", "reason": "Currently too wet — irrigation would push it further off path." }
+    { "block_id": "B1", "reason": "Currently too wet — irrigation would push it further off path." }
   ],
-  "summary": "18 available hours allocated to 3 of 7 blocks; 2 blocks skipped on forecast; est. 41 m³ water saved."
+  "summary": "18 available hours allocated to 3 of 7 blocks; 2 blocks skipped (forecast rain, too wet); est. 41 m³ water saved."
 }
 ```
 Greedy scheduler: per day, rank blocks by projected too-dry deviation × stage sensitivity (fruit_set/veraison weigh double) × wine-style weight (premium_red 1.3, red 1.15, white 1.0, fresh_white 1.0); skip blocks with ≥8 mm rain forecast within 48 h; allocate hours until block reaches band midpoint or day budget exhausts.
@@ -162,20 +163,21 @@ Request: `{ "type": "heatwave" | "drought" | "rain_event" | "cool_spell", "days"
 Response: array of per-block `status` objects (same schema as `/status`) computed with the perturbed forward series, plus `"delta"` per block: score change vs baseline. Perturbations: heatwave +6 °C & +30 % ET0, drought rain=0, rain_event +25 mm over 2 days, cool_spell −5 °C & −20 % ET0.
 
 ### `GET /api/backtest?months=4`
-Replays the engine day-by-day over the trailing window (real archive data):
+Replays the engine day-by-day over the trailing window, **information-limited**: each day-D flag uses only data available through day D plus the forward projection the engine would have had. Example values are the engine's actual output on the deterministic demo seed:
 ```json
 {
+  "methodology": "information_limited",
   "window": ["2025-09-20", "2026-01-20"],
   "events": [
-    { "date": "2025-12-04", "type": "heat_spike", "blocks_flagged": ["B1","B2","B4"],
-      "lead_days": 6, "narrative": "Engine projected B1 breaching its band 6 days before the 38°C spike." }
+    { "date": "2025-12-04", "type": "heat_spike", "blocks_flagged": ["B5","B6","B7"],
+      "lead_days": 8, "narrative": "On data available at the time, the engine projected B7 breaching its band 8 days before the 38°C spike." }
   ],
   "series": [ { "date": "2025-09-20", "farm_mean_score": 18, "blocks_out_of_band": 0 } ]
 }
 ```
 
 ### `GET /api/briefing`
-Farm-wide morning brief: array of per-block `{block_id, name, traffic, status, score, headline}` sorted by score desc, plus `farm_summary` string.
+Farm-wide morning brief: array of per-block `{block_id, name, traffic, status, score, headline}` sorted by score desc, plus `farm_summary` string. On the deterministic demo seed the ranked order is **B4 too_dry 55 · B1 too_wet 48 · B2 too_dry 21 · B7 too_dry 19 · B3 on_track 11 · B6 on_track 11 · B5 on_track 8**, with `farm_summary` = "3 block(s) need water, 1 too wet, 3 on track. Peak pressure: B4 (55)."
 
 ### `POST /api/irrigation`
 Log an irrigation event so the balance reflects it: `{ "block_id": "B1", "date": "2026-01-20", "mm": 9.0 }` → `{ "ok": true }`. Persisted to `backend/app/data/irrigation_log.json`.

@@ -37,7 +37,7 @@ Water stops being a resource to minimize and becomes the winemaker's first instr
 5. **Pour Slip** — a real prescription: mm needed → drip runtime in hours, per block, printable / WhatsApp-shareable. Includes "hold water" slips for too-wet blocks.
 6. **Battle Plan** — constraint-solved multi-day schedule: "I have 6 hours/day" → ordered plan that skips blocks with rain inbound and prioritizes by stage sensitivity × wine value.
 7. **Season Water Bank** — finite dam volume amortized over the remaining season by phenological priority. Burn-down chart + "you run dry on {date}" verdict. Day Zero resilience, built in.
-8. **Field Mode (PWA)** — GPS detects the block you're standing in; one number on screen: "B4 · Pour 3.2 h tonight." The daily-use hook.
+8. **Field Mode (PWA)** — GPS detects the block you're standing in; one number on screen: "B4 · Pour 14.5 h — split over two nights." The daily-use hook.
 
 ### The proof (what convinces judges)
 9. **Information-limited backtest** — replay the past season through the engine where each decision-day uses only data available through that day; record whether the projection breached the band *before* the actual event. No foreknowledge, no reading the archive. Lives inside the Validation view.
@@ -132,7 +132,7 @@ UI note: frontend ships with all design values centralized as tokens (single the
 
 Brief-core (must be flawless):
 - A field/day dashboard showing ETo, ETa, Kc and NDVI at block level.
-- A clear irrigate / hold / **how-much** recommendation per block ("Pour 3.2 h tonight").
+- A clear irrigate / hold / **how-much** recommendation per block ("B4 · Pour 14.5 h — split over two nights").
 - Stress alerts ranking blocks by depletion.
 - A Validation view: model vs WaPOR/FruitLook + a logged pressure-bomb (MPa) reading + a field-photo canopy read + the information-limited backtest.
 

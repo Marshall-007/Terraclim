@@ -83,7 +83,7 @@ Water stops being a resource to minimise. It becomes the winemaker's first instr
 
 1. **Phenology from climate.** Growing Degree Days (base 10 °C from 1 September, scaled per variety) infer each block's stage — budbreak → flowering → fruit set → véraison → harvest — with no sensors in the ground.
 2. **FAO-56 water balance, with the stress coefficient.** Per block, actual crop ET is `ETc_adj = ET0 × Kc(stage) × Ks`, where the **FAO-56 stress coefficient `Ks`** down-regulates ET once depletion passes readily-available water (`Ks = (TAW − D)/(TAW − RAW)`). Without it a linear balance over-states depletion exactly during the heat events that matter — the correction a soil-physics judge looks for. Effective rainfall is capped; TAW is per-block, not a flat guess.
-3. **The Stress Glide Path.** A target depletion band per stage × wine style, anchored on the FAO-56 grape depletion fraction `p = 0.45` and translated to MSWP-equivalent bars. Signed deviation drives one verdict: **on track / too dry / too wet.**
+3. **The Stress Glide Path.** A target depletion band per stage × wine style, anchored on the FAO-56 grape depletion fraction `p = 0.45` and translated to an MSWP-equivalent band in MPa. Signed deviation drives one verdict: **on track / too dry / too wet.**
 4. **A forward layer.** We project the balance ahead on a forecast feed — the answer to ET's retrospective flaw. This is a forecast *feed*, complementary to TerraClim's terrain history, not something TerraClim serves.
 
 ---

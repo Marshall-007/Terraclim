@@ -63,7 +63,7 @@ Point at the header badge — **"Data: TerraClim ET-GEO"** — then go straight 
 **Click:** The block's recommendation → the **Pour Slip**.
 
 **Say:**
-> "The brief asks for one practical answer per block: irrigate, hold, or how much. Here it is — not a score, a prescription: **'B4: apply 14 mm, 3.2 hours of drip, tonight.'** Printable, WhatsApp-shareable. And we speak the grower's language — alongside soil depletion we show the **stem water potential band in MPa**, the unit a viticulturist actually manages RDI in. Too-dry blocks get a runtime; on-track blocks get left alone; too-wet blocks — you'll see in a moment — get told to stop."
+> "The brief asks for one practical answer per block: irrigate, hold, or how much. Here it is — not a score, a prescription: **'B4: apply about 29 millimetres — fourteen and a half hours of drip, split across two nights.'** Printable, WhatsApp-shareable. And we speak the grower's language — alongside soil depletion we show the **stem water potential band in MPa**, the unit a viticulturist actually manages RDI in: this block models at **−1.34** against a **−1.2 to −1.0** target — just past the dry edge. Too-dry blocks get a runtime; on-track blocks get left alone; too-wet blocks — you'll see in a moment — get told to stop."
 
 **Judge should feel:** *That's an actionable number a grower can act on this morning, in their units.*
 
@@ -74,7 +74,7 @@ Point at the header badge — **"Data: TerraClim ET-GEO"** — then go straight 
 **Click:** Stress alerts / triage list — the farm ranked by depletion.
 
 **Say:**
-> "You don't manage forty blocks by staring at a map. Vino ranks the whole farm by depletion and surfaces the ones **moving toward stress** — the triage list. This is the layer that sits *above* a pressure bomb: it tells the grower *which* two blocks to walk and measure this morning, before anything goes wrong."
+> "You don't manage forty blocks by staring at a map. Vino ranks the whole farm by depletion and surfaces the ones **moving toward stress** — the triage list. Top of today's list: **B4, the Pinotage, at 55**. Second, **at 48, a block that isn't dry at all** — hold that thought. This is the layer that sits *above* a pressure bomb: it tells the grower *which* two blocks to walk and measure this morning, before anything goes wrong."
 
 **Judge should feel:** *This is farm-wide prioritisation, not a single reading — that's genuinely useful at scale.*
 
@@ -95,7 +95,7 @@ Point at the header badge — **"Data: TerraClim ET-GEO"** — then go straight 
 **Click:** The **backtest** tab.
 
 **Say (be precise — this is where a skeptic pounces):**
-> "And the replay. This is **information-limited**: on each day, the engine sees **only** the data available up to that day, projects forward, and we record whether it breached the band **before** the event actually arrived. No foreknowledge, no reading the answer off the archive. On this December heat build-up, the projection crossed the line **days ahead of the actual spike** — using only what a grower would have had at the time."
+> "And the replay. This is **information-limited**: on each day, the engine sees **only** the data available up to that day, projects forward, and we record whether it breached the band **before** the event actually arrived. No foreknowledge, no reading the answer off the archive. On this December heat build-up, the engine projected **B7 breaching its band eight days before the 38-degree spike** — using only what a grower would have had at the time."
 
 **Judge should feel:** *They validated against real references and they're honest about the backtest. This is scientifically credible.*
 
@@ -106,9 +106,9 @@ Point at the header badge — **"Data: TerraClim ET-GEO"** — then go straight 
 **Click:** Open **B1 Bosberg Cabernet** — the too-wet block. Status reads **too wet**. The Pour Slip flips to a **Hold Slip**.
 
 **Say (slow down — this is the moment):**
-> "Here's B1, the Cabernet. Every other tool on earth looks at this soil moisture and says *'plenty of water, you're fine.'* Vino says the opposite. It's drifted **below** its target band — it is **too wet.** For a premium Cabernet at this stage that means dilution, excess canopy, disease pressure — a weaker wine. So Vino doesn't print a watering prescription. It prints a **Hold Slip**:"
+> "Here's B1, the Cabernet. Every other tool on earth looks at this soil moisture and says *'plenty of water, you're fine.'* Vino says the opposite. It's drifted **below** its target band — it is **too wet.** Its stem water potential models at **−0.65 MPa** against a **−1.2 to −1.0** target band — far too comfortable for a premium Cabernet at this stage. That means dilution, excess canopy, disease pressure — a weaker wine. So Vino doesn't print a watering prescription. It prints a **Hold Slip**:"
 
-**Click:** The Hold Slip. *"Do not irrigate. ~4 days for the vine to work back into its band."*
+**Click:** The Hold Slip. *"Do not irrigate. ~7 days for the vine to work back into its band. Watering now risks dilution and excess vigor."*
 
 **Say:**
 > "*Stop watering. You're diluting your Cabernet.* No other product in this competition will say that sentence — because no other product knows that over-watering is the mistake."
@@ -129,7 +129,7 @@ Point at the header badge — **"Data: TerraClim ET-GEO"** — then go straight 
 **Click:** Highlight the skipped block — **B5 Kloofstroom Chenin.**
 
 **Say (second climax — let it breathe):**
-> "It's **skipping B5.** Not because B5 is fine — because there's **12 mm of rain forecast Thursday** that closes the deficit for free. Vino refuses to burn water and diesel on a block the sky is about to irrigate. *Don't water, it's going to rain* — that's the difference between a weather app and an intelligence app. Bottom line at the top of the plan: three blocks watered, two skipped on forecast, roughly 41 cubic metres saved. One screen."
+> "It's **skipping B5.** Not because B5 is fine — because there's **12 mm of rain forecast Thursday** that closes the deficit for free. Vino refuses to burn water and diesel on a block the sky is about to irrigate. *Don't water, it's going to rain* — that's the difference between a weather app and an intelligence app. Bottom line at the top of the plan: three blocks watered, two skipped — one on rain, one too wet — roughly 41 cubic metres saved. One screen."
 
 **Judge should feel:** *It reasons about the future and the constraints together — genuinely intelligent, not a lookup table.*
 
@@ -166,7 +166,7 @@ Do not add anything after this. Let the room sit with it.
 ## The Field Mode + photo kicker (Q&A material, or if you have >20 seconds spare)
 
 **Click:** Second device / Field Mode tab, location **simulated** to a block.
-> "This is what a grower uses at 6 a.m. — pick the block you're standing in (we simulate GPS here; at the venue it can't place you in a vineyard), and the screen says one thing: *'B4, pour 3.2 hours tonight.'* Snap a canopy photo and it uploads, gets the deterministic GLI read, and lands on that block's Validation screen. The whole product in their pocket."
+> "This is what a grower uses at 6 a.m. — pick the block you're standing in (we simulate GPS here; at the venue it can't place you in a vineyard), and the screen says one thing: *'B4 — pour 14.5 h, split over two nights.'* Snap a canopy photo and it uploads, gets the deterministic GLI read, and lands on that block's Validation screen. The whole product in their pocket."
 
 Field Mode and the photo capture are the first things to defer into Q&A if the 5 minutes is tight.
 
