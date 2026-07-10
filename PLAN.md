@@ -1,214 +1,108 @@
-# Vino — Plan of Attack
+# Vino — Plan of Attack (v2)
 
 **ET-GEO Hackathon 2026 · Team Marshall + Obey**
 **Tagline:** *Know when to pour.*
 
-This document is the merged plan derived from Marshall's VineWise AI README and Obey's Vino concept pitch. It supersedes both as the source of truth for build scope. Locked decisions live at the top; open questions live at the bottom.
+v2 upgrades the concept from an "irrigation decision engine" to a **wine quality trajectory engine**, and locks the build architecture: free data providers now, TerraClim as a drop-in adapter when the token arrives.
 
 ---
 
-## 1. One-sentence pitch
+## 1. The core insight (why this wins)
 
-Vino turns TerraClim climate data into a **daily irrigation prescription** for South African vineyards — deficit-irrigation-aware, forecast-driven, and delivered on the grower's phone in the field.
+Every other team will build the same thing: a map, a stress score, "this block is dry, water it." That is row-crop logic.
 
-## 2. Why we win
+Premium wine is made the other way around. Regulated Deficit Irrigation (RDI) means **the right amount of stress at the right phenological moment is the goal** — moderate deficit between fruit set and veraison concentrates berries and builds wine quality, while **over-watering is a defect**: dilution, excess vigor, disease pressure, worse wine.
 
-The room will be full of "coloured maps + AI explanation" demos. We beat that by shipping the three things nobody else will:
+So Vino's core metric is not "water stress." It is **deviation from the Stress Glide Path** — a target deficit band per block that moves with the season, the grape variety, and the wine goal. A block goes red when it drifts out of its band **in either direction**. Vino is the only tool in the room that will tell a grower: *"Stop watering — you're diluting your Cabernet."*
 
-1. **The Pour Slip** — an actual printable/shareable irrigation prescription (hours of drip per block, tonight), not a dashboard. This is what a foreman carries into the field.
-2. **Battle Plan × 14-day forecast** — a constraint-solved multi-day irrigation order. *"You have 6 hours today. Rain lands Thursday. Here is your 3-day plan: irrigate B4 tonight, skip A2, hold C1 for Saturday's heatwave."*
-3. **PWA field mode with GPS** — the grower opens the app standing in the vineyard; GPS auto-detects the block; one number on screen: **"Water 3.2h tonight."** This is the daily-use hook. A demo dashboard nobody opens twice; a phone screen a foreman opens every morning.
+Water stops being a resource to minimize and becomes the winemaker's first instrument.
 
-Underpinned by scientific credibility from Vino: proper **ETc = ET0 × Kc**, RDI-aware Kc curves for wine grapes, deterministic scoring the judges can audit.
+## 2. Feature set
 
-## 3. Locked decisions
+### The engine (deterministic, auditable)
+1. **Phenology engine** — Growing Degree Day accumulation (base 10 °C from 1 September) from climate data alone infers each block's stage: dormant → budbreak → flowering → fruit set → veraison → harvest → post-harvest. No sensors.
+2. **Water balance** — daily, per block: `ETc = ET0 × Kc(stage)`, root-zone depletion `D_t = clamp(D_{t-1} + ETc − rain − irrigation, 0, TAW)`.
+3. **Stress Glide Path** — target depletion band `[lo, hi]` per stage × wine style. Signed deviation drives everything: `on_track` / `too_dry` / `too_wet`.
+4. **14-day forecast** — forward ETc and projected deviation per block; kills the "ET data is retrospective" industry weakness.
 
-| Decision | Choice | Why |
-|---|---|---|
-| Project name | **Vino** | Short, wine-native, matches "Know when to pour." |
-| Frontend | **React + Vite + Tailwind + Leaflet** (PWA-enabled) | Fast to build, deploys free, mobile-first via PWA. |
-| Backend | **Python + FastAPI** | Water balance, forecast math, and TerraClim geo queries want pandas/geopandas/scikit-learn. Judges see scientific depth. |
-| Frontend deploy | **Vercel** (or GitHub Pages) | Free tier, one-command deploy. |
-| Backend deploy | **Render free tier** | Free web service, env-var config for `TERRACLIM_TOKEN`. |
-| Scoring | **Deterministic engine** (Python). AI only for language explanations. | Judges must be able to trace every recommendation to a number. |
-| MVP demo features | Pour Slip · Battle Plan × Forecast · PWA field mode | Everything else is roadmap. |
-| Cut for MVP | Photo canopy cross-check · Full Collaboration Hub · ESG PDF export · ML gap-fill for cloudy days | Mentioned in pitch as roadmap. |
+### The decisions (what the grower actually gets)
+5. **Pour Slip** — a real prescription: mm needed → drip runtime in hours, per block, printable / WhatsApp-shareable. Includes "hold water" slips for too-wet blocks.
+6. **Battle Plan** — constraint-solved multi-day schedule: "I have 6 hours/day" → ordered plan that skips blocks with rain inbound and prioritizes by stage sensitivity × wine value.
+7. **Season Water Bank** — finite dam volume amortized over the remaining season by phenological priority. Burn-down chart + "you run dry on {date}" verdict. Day Zero resilience, built in.
+8. **Field Mode (PWA)** — GPS detects the block you're standing in; one number on screen: "B4 · Pour 3.2 h tonight." The daily-use hook.
+
+### The proof (what convinces judges)
+9. **Backtest** — replay the past season through the engine; show it flagging real heat events early. Answers "how do you know it's right?" with data.
+10. **Morning Briefing** — one cached daily sync of all blocks (fits TerraClim's 50 queries/day limit by design), served as a farm-wide daily brief.
+
+### Explicitly deferred (pitch as roadmap)
+Photo canopy cross-check · ESG/water-stewardship PDF export · Collaboration hub · ML gap-fill · Sentinel-2 NDVI overlay.
+
+## 3. Data strategy: free now, TerraClim drop-in later
+
+```
+ClimateProvider (interface)
+  get_daily(lat, lon, start, end)   → et0, rain, tmax, tmin, rh, wind, solar
+  get_forecast(lat, lon, days)      → same shape, up to 16 days
+      │
+      ├── OpenMeteoProvider   (DEFAULT — free, no key, live today)
+      │     forecast API + historical archive API, includes FAO-56 ET0
+      └── TerraClimProvider   (auto-activates when TERRACLIM_TOKEN is set)
+            /api/point/ · /api/polygon/ · /api/nearest-station
+```
+
+The engine only ever sees the provider interface. When TerraClim hands us the token on Day 0, we set one env var and the whole app runs on their data — that is the demo line: *"Built provider-agnostic, running on your network."*
 
 ## 4. Architecture
 
 ```
-                    ┌──────────────────────────────────────────┐
-                    │  React + Vite PWA (Vercel)               │
-                    │  - Dashboard (map, ranked blocks)        │
-                    │  - Battle Plan screen                    │
-                    │  - Field Mode (GPS, one-number screen)   │
-                    │  - Pour Slip (printable/WhatsApp share)  │
-                    └────────────┬─────────────────────────────┘
-                                 │ HTTPS JSON
-                    ┌────────────▼─────────────────────────────┐
-                    │  FastAPI backend (Render)                │
-                    │  /blocks  /score  /forecast              │
-                    │  /battle-plan  /pour-slip  /explain      │
-                    ├──────────────────────────────────────────┤
-                    │  services/                               │
-                    │   ├ terraclim_client.py  (server-side)   │
-                    │   ├ water_balance.py     (ETc = ET0×Kc)  │
-                    │   ├ forecast.py          (14-day)        │
-                    │   ├ battle_plan.py       (constraint)    │
-                    │   └ ai_explainer.py      (optional)      │
-                    ├──────────────────────────────────────────┤
-                    │  cache/  JSON on disk, 6h TTL            │
-                    └────────────┬─────────────────────────────┘
-                                 │
-              ┌──────────────────┼──────────────────┐
-              ▼                  ▼                  ▼
-       TerraClim API     Open-Meteo forecast    (Optional)
-       (server-side      (free, forward ET      OpenAI /
-        token in env)    proxy inputs)          local LLM
+React + Vite + TS + Tailwind + Leaflet PWA  (Vercel)
+  Dashboard · Block detail (glide path chart) · Battle Plan
+  Season Bank · Field Mode · Pour Slip · Backtest · Scenario
+        │ JSON over HTTPS (typed client, mock fallback)
+FastAPI backend  (Render)
+  routes:   /api/health /api/blocks /api/blocks/{id}/status
+            /api/blocks/{id}/timeseries /api/battle-plan
+            /api/season-bank /api/scenario /api/backtest
+            /api/briefing /api/irrigation (log events)
+  engine:   phenology.py · water_balance.py · scoring.py
+            forecast.py · battle_plan.py · season_bank.py · backtest.py
+  providers: open_meteo.py · terraclim.py (same interface)
+  cache:    disk JSON, 6 h TTL, one morning batch sync
+  data:     blocks.geojson · kc_curves.json · stress_targets.json
 ```
 
-Key rule (from both source docs): **TerraClim token never touches the browser.** All API calls proxy through FastAPI.
+Full request/response schemas: `docs/API_CONTRACT.md` (the build contract for all agents).
 
-## 5. The water balance (deterministic core)
+## 5. Demo farm & demo date
 
-Per block, per day:
+- **Farm:** 7 blocks on real Stellenbosch coordinates (≈ 18.86 E, −33.93 S), varieties spanning wine styles: Cabernet Sauvignon & Shiraz (premium red), Merlot & Pinotage (red), Chenin Blanc & Chardonnay (white), Sauvignon Blanc (fresh white). Different styles → different glide paths → visible contrast on the map.
+- **Demo date:** July is dormant season in the Cape, so the app supports `as_of` (env `DEMO_DATE`, default 2026-01-20 — peak deficit-irrigation window). Historical data for that window is real, via the archive API. Judges see mid-season action, not winter.
 
-```
-ETc     = ET0 × Kc(phenology, RDI stage)
-Deficit = ETc − (rainfall + irrigation_applied)
-Balance = rolling 7-day cumulative deficit
-```
+## 6. Build approach
 
-Where `Kc` is a stage-aware crop coefficient for wine grapes under regulated deficit irrigation. We ship a table for MVP (budbreak / flowering / veraison / harvest) — literature values, credited in the pitch.
+Parallel agent build against the locked contract:
+- **Backend agent** → complete FastAPI app + engine + providers + tests, runnable.
+- **Frontend agent** → complete PWA, typed client, mock fallback so it demos even without backend.
+- **Viticulture research agent** → verify Kc curves, GDD stage thresholds, RDI depletion bands for SA wine regions; sources documented in `docs/research/`.
+- **Pitch agent** → judge-facing pitch narrative + demo script in `docs/`.
+- **Red-team agent** → attack the concept as a hostile judge; findings drive final polish.
 
-The **Water Stress Score (0–100)** is a normalised, weighted rollup of:
-- 7-day cumulative deficit (weight 40)
-- Forecast 7-day deficit (weight 25)
-- Temperature max pressure (weight 15)
-- Wind + humidity evaporation pressure (weight 10)
-- Recent trend delta (weight 10)
+UI note: frontend ships with all design values centralized as tokens (single theme file) — deliberately neutral so the team can apply its own design language afterward. No AI-boilerplate comments, no placeholder lorem.
 
-Traffic light: 0–25 stable · 26–50 watch · 51–75 high · 76–100 critical.
+## 7. Non-negotiable rules
 
-The **Pour Slip** answers deficit in real units: `runtime_hours = deficit_mm × block_area_m2 / drip_flow_L_per_h`. Growers get *hours of drip*, not an abstract score.
+- Provider tokens live in backend env vars only. Never in frontend, never in git. `.env.example` only.
+- All external climate calls go through the backend and its cache.
+- Scoring is deterministic; AI writes English only, never numbers.
+- Every recommendation is auditable: stage → balance → deviation → prescription.
+- Rate-limit-friendly by design: one batch sync per day serves all screens from cache.
 
-## 6. Battle Plan algorithm (killer feature)
+## 8. Success criteria
 
-**Input:** available irrigation hours per day for next N days, forecast per block, current deficit per block.
-
-**Output:** ordered list `[(day, block, hours)]` maximising `Σ(stress_reduction × block_priority_weight)` subject to daily hour cap.
-
-**Method for MVP:** greedy scheduler. Each morning, sort blocks by projected stress at end of horizon; assign hours to the top block until either its deficit closes or forecast rain lands; move to next block. If rain forecast within 48h for a block, defer it. Fast, explainable, demo-friendly.
-
-Post-MVP: swap greedy for a small MILP (PuLP) for provable optimality — mention in the pitch as roadmap.
-
-## 7. Repo layout
-
-```
-Terraclim/
-├── PLAN.md                  ← this file
-├── README.md                ← public-facing, written last
-├── frontend/                (React + Vite PWA)
-│   ├── src/
-│   │   ├── components/{Map,BlockList,BlockDetail,BattlePlan,FieldMode,PourSlip}
-│   │   ├── pages/{Dashboard,Simulator,Field}
-│   │   ├── services/api.ts
-│   │   ├── utils/formatting.ts
-│   │   └── pwa/manifest.json
-│   └── vite.config.ts
-├── backend/                 (FastAPI)
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── routes/{health,blocks,score,forecast,battle_plan,pour_slip,explain}.py
-│   │   ├── services/{terraclim_client,water_balance,forecast,battle_plan,ai_explainer,cache}.py
-│   │   └── models/{block,score,slip,plan}.py
-│   ├── data/
-│   │   ├── sample_blocks.geojson
-│   │   ├── kc_curves.json
-│   │   └── cache/
-│   ├── requirements.txt
-│   └── .env.example
-└── docs/
-    └── demo_script.md
-```
-
-## 8. Day-by-day build
-
-### Day 1 — Foundations
-- Scaffold `frontend/` (Vite React TS) and `backend/` (FastAPI + uv/poetry).
-- Sample vineyard `sample_blocks.geojson` (5–8 blocks, real Western Cape coords).
-- Leaflet map rendering blocks with placeholder colours.
-- FastAPI `/health` and `/blocks` (returns sample GeoJSON).
-- `terraclim_client.py` with disk cache; test one `/api/point/` call end-to-end.
-- Deploy skeleton to Vercel + Render (fail fast on deploy issues).
-
-### Day 2 — Water balance + scoring
-- `water_balance.py` implementing ETc = ET0 × Kc with stage-aware Kc.
-- `score.py` deterministic engine returning score 0–100 + driver breakdown.
-- `/score/{block_id}` endpoint.
-- Frontend: traffic-light block colouring, ranked block list, block detail panel with driver bars.
-- Wire TerraClim polygon queries to real block polygons; caching verified.
-
-### Day 3 — Forecast + Battle Plan + Pour Slip
-- `forecast.py` pulling Open-Meteo 14-day for each block centroid; project ETc forward.
-- `battle_plan.py` greedy scheduler; `/battle-plan` endpoint accepting `available_hours_per_day`.
-- Battle Plan screen: user enters hours, sees prioritised multi-day plan with reasons.
-- **Pour Slip** endpoint + printable component (`hours × deficit × drip rate`), WhatsApp share link.
-- Optional AI explainer wired in for one plain-English sentence per block.
-
-### Day 4 — Field mode PWA + polish + demo
-- PWA manifest + service worker; installable to phone home screen.
-- Field Mode page: `navigator.geolocation`, point-in-polygon match against blocks, one-number display.
-- Offline fallback: cache last recommendation per block.
-- Polish (Tailwind pass, empty states, error handling).
-- Record demo screencast; write `docs/demo_script.md` (10 beats).
-- Final deploy verify; README written.
-
-## 9. Demo script (10 beats, ~4 min)
-
-1. Open Vino on desktop → farm map, colour-coded blocks. Point out one **red critical** block.
-2. Click Block B4 → Water Stress Score 82 · driver breakdown · plain-English reason.
-3. "But growers aren't at desks." → Switch to phone view (Field Mode). Show one-number screen: **"B4 · Pour 3.2h tonight."**
-4. Back to desktop → open **Battle Plan** → enter *"I only have 6 hours today."*
-5. Show output: 3-day optimised plan, with each choice justified against the forecast.
-6. Point out: rain forecast in 3 days meant we *skipped* A2 — saved water and time.
-7. Click Pour Slip on B4 → printable prescription with drip runtime. Show WhatsApp share.
-8. Open Scenario Simulator → apply heatwave → watch scores re-rank live.
-9. Close on differentiation: "Others built a map viewer. We built a decision engine on TerraClim's own data — forecast, battle plan, and a phone-first prescription."
-10. Value slide: what's missing today (retrospective ET · generic models · desk tools) vs what Vino ships (forward-looking · RDI-aware · in-field). Roadmap: photo cross-check · ESG report · ML gap-fill.
-
-## 10. Open questions (Day 0 asks for TerraClim)
-
-- **API access shape**: live REST vs static data dump for hackathon day?
-- **Sample block polygons**: do they have canonical Western Cape vineyard boundaries we should use?
-- **Kc / crop coefficient values**: is there a TerraClim-approved reference table for South African wine regions?
-- **Rate limits during hackathon**: does the 50/day sustained limit apply per team? Can we get a raised quota for the demo day?
-- **Forecast layer**: does TerraClim expose forward-looking ET0, or do we lean on Open-Meteo?
-
-## 11. Roles (for team confirmation)
-
-| Role | Owner | Scope |
-|---|---|---|
-| Backend + data + water balance | Obey | FastAPI, TerraClim client, water_balance.py, forecast.py, battle_plan.py |
-| Frontend + PWA + UX | Marshall | React app, map, block panels, Battle Plan UI, Field Mode PWA, Pour Slip |
-| AI explainer + demo polish | Shared | Optional AI layer, demo screencast, pitch deck |
-| Viticulture liaison | TBD | Confirm Kc values and RDI phenology; validate scoring weights |
-
-## 12. Non-negotiable rules (inherited)
-
-- TerraClim token stays in backend env vars. Never in frontend, never in git.
-- All TerraClim calls proxy through FastAPI. Cache everything (6h TTL default).
-- Scoring is deterministic. AI writes English only, never numbers.
-- No `.env` committed. `.env.example` only.
-- Every recommendation is auditable: score → drivers → prescription.
-
-## 13. Success criteria for the demo
-
-- One phone screen showing a real, correct number for a real block.
-- One desktop plan showing a multi-day, forecast-aware, constraint-solved schedule.
-- One printable prescription that looks like something a foreman would carry.
-- Zero exposed tokens. All data flowing through the backend. Cache working under repeat clicks.
-
----
-
-*Ready to scaffold once roles and Day 0 questions confirmed.*
+- A phone screen with a real, correct number for a real block ("Pour 3.2 h tonight").
+- A "too wet" alert on at least one block — the moment nobody else has.
+- A multi-day, forecast-aware, constraint-solved schedule with reasons.
+- A season burn-down verdict from the Water Bank.
+- A backtest replay that catches a real historical heat event.
+- One env var flips the whole app from Open-Meteo to TerraClim.
