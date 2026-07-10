@@ -49,8 +49,12 @@ for block in load_blocks():
     D = 0.30 * taw
     for w in history:
         stage = stage_by_date[w.date]
-        etc = w.et0 * kc_for(kc, stage)
-        D = clamp(D + etc - w.rain, 0.0, taw)
+        # Match the engine balance exactly: FAO-56 Ks, measured ETa when present,
+        # effective rainfall. Keeps log -> balance -> status reconciling day-for-day.
+        ks = stress_coefficient(D, taw)
+        etc = w.et0 * kc_for(kc, stage) * ks
+        consumed = w.eta if w.eta is not None else etc
+        D = clamp(D + consumed - effective_rain(w.rain), 0.0, taw)
         lo, hi = band_for(targets, stage, block.wine_style)
         mid = (lo + hi) / 2
 

@@ -10,15 +10,28 @@ import type {
   BattlePlan,
   BattlePlanRequest,
   BlockCollection,
+  BlockFeature,
+  BlockPhoto,
   BlockStatus,
+  BlockValidation,
   Briefing,
+  CacheRefreshResponse,
+  CreateBlockRequest,
+  DeleteBlockResponse,
+  DemoDateRequest,
+  DemoDateResponse,
   Health,
   IrrigationRequest,
   IrrigationResponse,
+  ProviderRequest,
+  ProviderResponse,
   ScenarioBlock,
   ScenarioRequest,
   SeasonBank,
+  Settings,
   Timeseries,
+  ValidationReading,
+  ValidationReadingRequest,
 } from '../types/api';
 import * as mock from './mocks';
 
@@ -47,6 +60,27 @@ export const apiMode = {
   subscribe(fn: Listener): () => void {
     listeners.add(fn);
     return () => listeners.delete(fn);
+  },
+};
+
+// ---------- settings-changed signal ----------
+// Bumped after any mutation that can alter the active data source or as_of
+// (provider switch, cache refresh, demo date) so the header badge and open
+// screens can refetch without a page reload.
+type VersionListener = () => void;
+let settingsVersion = 0;
+const settingsListeners = new Set<VersionListener>();
+
+function bumpSettings() {
+  settingsVersion++;
+  for (const l of settingsListeners) l();
+}
+
+export const settingsSignal = {
+  version: () => settingsVersion,
+  subscribe(fn: VersionListener): () => void {
+    settingsListeners.add(fn);
+    return () => settingsListeners.delete(fn);
   },
 };
 
@@ -81,10 +115,10 @@ async function served<T>(live: () => Promise<T>, fallback: () => T): Promise<T> 
 // ---------- endpoints ----------
 export const api = {
   getHealth: () =>
-    served<Health>(() => fetchJson('/api/health'), () => mock.mockHealth),
+    served<Health>(() => fetchJson('/api/health'), () => mock.mockHealth()),
 
   getBlocks: () =>
-    served<BlockCollection>(() => fetchJson('/api/blocks'), () => mock.mockBlocks),
+    served<BlockCollection>(() => fetchJson('/api/blocks'), () => mock.mockBlocks()),
 
   getBlockStatus: (id: string) =>
     served<BlockStatus>(
@@ -99,7 +133,7 @@ export const api = {
     ),
 
   getBriefing: () =>
-    served<Briefing>(() => fetchJson('/api/briefing'), () => mock.mockBriefing),
+    served<Briefing>(() => fetchJson('/api/briefing'), () => mock.mockBriefing()),
 
   postBattlePlan: (req: BattlePlanRequest) =>
     served<BattlePlan>(

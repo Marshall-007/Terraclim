@@ -41,3 +41,7 @@ Thumbs.db
 .vscode/
 *.swp
 *.tsbuildinfo
+
+# Field photo uploads — never commit user images
+backend/app/data/photos/*
+!backend/app/data/photos/.gitkeep

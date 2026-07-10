@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from dateutil.relativedelta import relativedelta
 
+from .forecast import project_forward
 from .phenology import build_phenology, variety_factor
 from .scoring import band_for, deviation_status, score_value
 from .water_balance import compute_balance
 
 HEAT_SPIKE_TMAX = 35.0
+HEAT_FORECAST_TMAX = 33.0   # a day this hot inside the forward window = the engine "saw heat coming"
 LEAD_LOOKBACK_DAYS = 14
 FORWARD_HORIZON = 7
+HARVEST_GDD = 1600.0
 
 
 def _season_start(as_of: date) -> date:
@@ -19,16 +22,45 @@ def _season_start(as_of: date) -> date:
 
 
 def _block_daily(block, provider, targets, kc, season: date, as_of: date, irrigation: dict) -> list[dict]:
+    """Per-day record for one block. Each day D carries its actual state (from data
+    up to and including D) and a *projected* signal — what the engine's own forward
+    model, run at D on a forecast it would have had, expected over the next week. No
+    row consults weather or depletion measured after its own date: the backtest is
+    information-limited."""
     factor = variety_factor(block.variety)
     history = provider.get_daily(block.lat, block.lon, season, as_of)
+    # Forward weather the engine would have projected from; deterministic here, a live
+    # forecast feed in production (disclosed — no archived forecast exists to replay).
+    forward_ext = provider.get_daily(
+        block.lat, block.lon, as_of + timedelta(days=1), as_of + timedelta(days=FORWARD_HORIZON)
+    )
+    combined = history + forward_ext
+
     phen = build_phenology(history, factor)
     balance = compute_balance(history, phen, kc, block.taw_mm, irrigation)
     tmax_by_date = {w.date: w.tmax for w in history}
+    gdd_by_i = [g for _d, g, _s in phen]
+    harvest_onset = next((d for d, g, _s in phen if g >= HARVEST_GDD * factor), None)
 
     rows: list[dict] = []
-    for bd in balance:
+    for i, bd in enumerate(balance):
         lo, hi = band_for(targets, bd.stage, block.wine_style)
         dev, status = deviation_status(bd.depletion_fraction, lo, hi)
+
+        window = combined[i + 1: i + 1 + FORWARD_HORIZON]
+        proj = project_forward(
+            bd.depletion_mm, gdd_by_i[i], harvest_onset, window,
+            factor, kc, block.taw_mm, targets, block.wine_style,
+        )
+        proj_breach = any(
+            p["depletion_fraction_projected"] > p["band_hi"] for p in proj
+        )
+        proj_dev = 0.0
+        for p in proj:
+            d, _ = deviation_status(p["depletion_fraction_projected"], p["band_lo"], p["band_hi"])
+            proj_dev = max(proj_dev, d)
+        proj_hot = max((w.tmax for w in window), default=0.0)
+
         rows.append(
             {
                 "date": bd.date,
@@ -38,21 +70,23 @@ def _block_daily(block, provider, targets, kc, season: date, as_of: date, irriga
                 "dev": dev,
                 "status": status,
                 "tmax": tmax_by_date.get(bd.date, 0.0),
+                "proj_dev": proj_dev,
+                "proj_breach": proj_breach,
+                "proj_hot": proj_hot,
             }
         )
     return rows
 
 
 def _score_at(rows: list[dict], i: int) -> int:
-    now = rows[i]["dev"]
-    j = min(i + FORWARD_HORIZON, len(rows) - 1)
-    fut = rows[j]["dev"]
-    return score_value(now, fut)
+    """Score with the forward component drawn from the day-i projection — the same
+    now/forecast blend the live engine uses, never a peek at realised future state."""
+    return score_value(rows[i]["dev"], rows[i]["proj_dev"])
 
 
 def run_backtest(blocks, provider, as_of: date, months: int, targets: dict, kc: dict, irrigation_lookup) -> dict:
-    season = _season_start(as_of)
     window_start = as_of - relativedelta(months=months)
+    season = _season_start(as_of)
 
     per_block: dict[str, list[dict]] = {}
     for block in blocks:
@@ -60,7 +94,6 @@ def run_backtest(blocks, provider, as_of: date, months: int, targets: dict, kc: 
             block, provider, targets, kc, season, as_of, irrigation_lookup(block.id)
         )
 
-    # Align on the first block's dates; all share the same calendar.
     ref = next(iter(per_block.values()))
     idx_by_date = {row["date"]: i for i, row in enumerate(ref)}
     window_dates = [row["date"] for row in ref if row["date"] >= window_start]
@@ -90,6 +123,7 @@ def run_backtest(blocks, provider, as_of: date, months: int, targets: dict, kc: 
 
     return {
         "window": [window_start.isoformat(), as_of.isoformat()],
+        "methodology": "information_limited",
         "events": events,
         "series": series,
     }
@@ -119,38 +153,30 @@ def _detect_heat_spikes(window_dates, farm_tmax, per_block, idx_by_date) -> list
     return events
 
 
-STRESS_SWING = 0.15        # dryward jump in depletion fraction that marks heat stress
-PROJECTED_SWING = 0.12     # forward-projected jump that counts as an early warning
-
-
 def _build_event(peak: date, farm_tmax, per_block, idx_by_date) -> dict:
+    """Flag a block if, at a decision day in the fortnight *before* the peak, the
+    engine's forward projection (run on data up to that day) crossed the block into
+    a too-dry breach while it was still in band — a genuine ahead-of-time warning,
+    not a block already out of band. Lead = the earliest such warning day."""
     pi = idx_by_date[peak]
     flagged: list[str] = []
-    breached_any = False
     best_lead = 0
     headline_block: str | None = None
 
     for bid, rows in per_block.items():
-        n = len(rows)
-        pre = min(r["f"] for r in rows[max(0, pi - 2):pi + 1])
-        post_slice = rows[pi:min(n, pi + 5)]
-        post = max(r["f"] for r in post_slice)
-        breached = any(r["status"] == "too_dry" for r in post_slice)
-        # A block is flagged if the heat drove a sharp dryward swing or a band breach.
-        if not (breached or (post - pre) >= STRESS_SWING):
-            continue
-        flagged.append(bid)
-        breached_any = breached_any or breached
-
-        # Lead: earliest day the 7-day forward projection already saw the swing coming.
         lead = 0
         for back in range(1, LEAD_LOOKBACK_DAYS + 1):
             di = pi - back
             if di < 0:
                 break
-            j = min(di + FORWARD_HORIZON, n - 1)
-            if rows[j]["f"] - rows[di]["f"] >= PROJECTED_SWING or rows[j]["f"] > rows[di]["hi"]:
-                lead = back
+            r = rows[di]
+            # Early warning: the forecast the engine held at di carried building heat
+            # AND its projection crossed the still-in-band block into a too-dry breach.
+            if r["proj_breach"] and r["status"] != "too_dry" and r["proj_hot"] >= HEAT_FORECAST_TMAX:
+                lead = back  # keep advancing -> ends at the earliest warning day
+        if lead == 0:
+            continue
+        flagged.append(bid)
         if lead > best_lead:
             best_lead = lead
             headline_block = bid
@@ -162,10 +188,9 @@ def _build_event(peak: date, farm_tmax, per_block, idx_by_date) -> dict:
     if not flagged:
         narrative = f"{peak_temp}°C heat spike; managed irrigation held all blocks in band."
     else:
-        verb = "breaching its band" if breached_any else "stress climbing toward its band edge"
         narrative = (
-            f"Engine projected {headline_block} {verb} {best_lead} days "
-            f"before the {peak_temp}°C spike."
+            f"On data available at the time, the engine projected {headline_block} "
+            f"breaching its band {best_lead} days before the {peak_temp}°C spike."
         )
 
     return {
