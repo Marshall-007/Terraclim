@@ -32,7 +32,7 @@ def _heat_spike_bump(d: date) -> float:
     delta = abs((d - HEAT_SPIKE_DATE).days)
     if delta > HEAT_SPIKE_HALF_WIDTH_DAYS + 3:
         return 0.0
-    return 7.5 * math.exp(-(delta ** 2) / (2 * (HEAT_SPIKE_HALF_WIDTH_DAYS ** 2) + 0.5))
+    return 9.0 * math.exp(-(delta ** 2) / (2 * (HEAT_SPIKE_HALF_WIDTH_DAYS ** 2) + 0.5))
 
 
 def synthetic_daily(lat: float, lon: float, d: date) -> DailyWeather:
@@ -40,9 +40,10 @@ def synthetic_daily(lat: float, lon: float, d: date) -> DailyWeather:
     site = _unit_noise(round(lat, 3), round(lon, 3))
     jitter = _unit_noise(d.isoformat(), round(lat, 3)) - 0.5
 
+    # Calibrated to Stellenbosch (Region III/IV): ~1200-1500 GDD by mid-January.
     spike = _heat_spike_bump(d)
-    tmax = 26.0 + 8.0 * phase + 3.0 * jitter + spike
-    diurnal = 8.0 + 3.0 * max(0.0, phase) + 1.5 * site
+    tmax = 24.0 + 6.5 * phase + 2.5 * jitter + spike
+    diurnal = 9.0 + 2.5 * max(0.0, phase) + 1.5 * site
     tmin = tmax - diurnal
     tmean = (tmax + tmin) / 2
 

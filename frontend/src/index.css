@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+    font-optical-sizing: auto;
+  }
+
+  ::selection {
+    background: theme('colors.bordeaux.tint');
+    color: theme('colors.bordeaux.dark');
+  }
+
+  /* Tabular numerals wherever figures must align. */
+  .nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-line bg-surface shadow-card;
+  }
+
+  .hairline {
+    @apply border-line;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2
+      text-sm font-medium transition-colors disabled:opacity-40
+      disabled:cursor-not-allowed select-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-bordeaux text-paper hover:bg-bordeaux-dark;
+  }
+
+  .btn-ghost {
+    @apply btn border border-line bg-surface text-ink-soft hover:bg-slate-tint;
+  }
+
+  .field {
+    @apply w-full rounded-md border border-line bg-raised px-3 py-2 text-sm text-ink
+      outline-none focus:border-bordeaux-soft focus:ring-2 focus:ring-bordeaux/15;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted;
+  }
+}
+
+/* Leaflet surface should feel part of the product, not a stock widget. */
+.leaflet-container {
+  background: #eee9df;
+  font-family: theme('fontFamily.sans');
+}
+.leaflet-tile-pane {
+  filter: saturate(0.82) brightness(1.02);
+}
+.leaflet-control-attribution {
+  background: rgba(251, 250, 246, 0.82) !important;
+  font-size: 10px !important;
+  color: theme('colors.ink.muted') !important;
+}
+.leaflet-bar a {
+  color: theme('colors.ink.soft') !important;
+  border-color: theme('colors.line') !important;
+}
+.leaflet-tooltip.vino-map-label {
+  background: rgba(251, 250, 246, 0.9);
+  border: 1px solid theme('colors.line-strong');
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: theme('colors.ink.soft');
+  box-shadow: none;
+  font-variant-numeric: tabular-nums;
+}
+.leaflet-tooltip.vino-map-label::before {
+  display: none;
+}
+
+/* thin, quiet scrollbars */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: theme('colors.line-strong') transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: theme('colors.line-strong');
+  border-radius: 999px;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+}
