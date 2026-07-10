@@ -102,21 +102,28 @@ export function closeRing(vertices: LngLat[]): number[][] | null {
 
 /**
  * Planar shoelace area of a closed lon/lat ring, projected to metres with an
- * equirectangular approximation about the ring's mean latitude. Accurate to
- * well under 1% at field scale, which is all the tracing tool needs.
- * Returns square metres, always positive (winding-independent).
+ * equirectangular approximation about the ring's mean latitude. Coordinates
+ * are translated to the ring's mean point first so the shoelace sum does not
+ * cancel catastrophically on large absolute lon/lat values. Accurate to well
+ * under 1% at field scale, which is all the tracing tool needs. Returns
+ * square metres, always positive (winding-independent).
  */
 export function ringAreaM2(ring: number[][]): number {
   if (ring.length < 4) return 0; // closed ring needs 3 vertices + repeat
-  const lat0 =
-    (ring.reduce((s, [, lat]) => s + lat, 0) / ring.length) * DEG;
-  const kx = EARTH_RADIUS_M * Math.cos(lat0) * DEG; // metres per degree lon
-  const ky = EARTH_RADIUS_M * DEG; // metres per degree lat
+  // Mean over the open ring — the duplicated closing vertex would otherwise
+  // bias the projection point differently depending on winding direction.
+  const open = ring.slice(0, -1);
+  const lonMean = open.reduce((s, [lon]) => s + lon, 0) / open.length;
+  const latMean = open.reduce((s, [, lat]) => s + lat, 0) / open.length;
+  const kx = EARTH_RADIUS_M * Math.cos(latMean * DEG) * DEG; // m per degree lon
+  const ky = EARTH_RADIUS_M * DEG; // m per degree lat
   let sum = 0;
   for (let i = 0; i < ring.length - 1; i++) {
-    const [x1, y1] = ring[i];
-    const [x2, y2] = ring[i + 1];
-    sum += x1 * kx * (y2 * ky) - x2 * kx * (y1 * ky);
+    const x1 = (ring[i][0] - lonMean) * kx;
+    const y1 = (ring[i][1] - latMean) * ky;
+    const x2 = (ring[i + 1][0] - lonMean) * kx;
+    const y2 = (ring[i + 1][1] - latMean) * ky;
+    sum += x1 * y2 - x2 * y1;
   }
   return Math.abs(sum) / 2;
 }

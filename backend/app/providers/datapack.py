@@ -131,6 +131,10 @@ class DataPackProvider:
         window = [w for w in rows if start <= w.date <= end]
         if not window:
             raise ProviderError("data pack series does not cover the requested range")
+        # Incomplete tail (e.g. a forward window past the pack's last day): fall back
+        # rather than serve a truncated balance.
+        if window[-1].date < end:
+            raise ProviderError("data pack does not cover the full requested range")
         return window
 
     def get_forecast(self, lat: float, lon: float, days: int) -> list[DailyWeather]:
