@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import { useAsync } from '../hooks/useApi';
 import { PageHeader, Section } from '../components/common/primitives';
 import { LoadingPanel, ErrorState, EmptyState } from '../components/common/states';
+import { Explainable } from '../insight/Explainable';
 import { Icon } from '../components/layout/icons';
 import { fmtHours, fmtLongDate, fmtMm } from '../lib/format';
 import { color } from '../theme/tokens';
@@ -136,7 +137,20 @@ export function BattlePlan() {
                             className="rounded-md border border-line bg-raised p-3"
                           >
                             <div className="flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2">
+                              <Explainable
+                                subject={{
+                                  subject_type: 'battle_plan_entry',
+                                  block_id: e.block_id,
+                                  context: {
+                                    day: day.day,
+                                    block_id: e.block_id,
+                                    hours: e.hours,
+                                    mm: e.mm_applied,
+                                  },
+                                }}
+                                label={`Why ${e.block_id} gets water`}
+                                className="gap-2"
+                              >
                                 <span className="nums rounded-sm bg-slate-tint px-1.5 py-0.5 text-xs font-bold text-slate">
                                   {e.block_id}
                                 </span>
@@ -146,7 +160,7 @@ export function BattlePlan() {
                                 <span className="text-xs text-ink-muted">
                                   · {fmtMm(e.mm_applied)}
                                 </span>
-                              </div>
+                              </Explainable>
                             </div>
                             <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
                               {e.reason}
@@ -177,7 +191,18 @@ export function BattlePlan() {
                         <Icon name="droplet" size={14} />
                       </span>
                       <div>
-                        <span className="nums text-xs font-bold text-slate">{s.block_id}</span>
+                        <Explainable
+                          subject={{
+                            subject_type: 'battle_plan_skip',
+                            block_id: s.block_id,
+                            context: { day: planQ.data?.as_of, block_id: s.block_id },
+                          }}
+                          label={`Why ${s.block_id} is skipped`}
+                        >
+                          <span className="nums text-xs font-bold text-slate">
+                            {s.block_id}
+                          </span>
+                        </Explainable>
                         <p className="text-xs leading-relaxed text-ink-soft">{s.reason}</p>
                       </div>
                     </li>

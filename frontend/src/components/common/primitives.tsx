@@ -62,7 +62,7 @@ export function StatTile({
   hint,
   accent,
 }: {
-  label: string;
+  label: ReactNode;
   value: ReactNode;
   unit?: string;
   delta?: { value: string; good: boolean };

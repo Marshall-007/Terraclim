@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { InsightProvider } from './insight/InsightContext';
 import { AppShell } from './components/layout/AppShell';
 import { Dashboard } from './screens/Dashboard';
 import { FieldMode } from './screens/FieldMode';
@@ -15,21 +16,23 @@ export function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <ErrorBoundary>
-        <Routes>
-          <Route element={<AppShell />}>
-            <Route index element={<Dashboard />} />
-            <Route path="field" element={<FieldMode />} />
-            <Route path="battle-plan" element={<BattlePlan />} />
-            <Route path="water-bank" element={<SeasonBank />} />
-            <Route path="slips" element={<PourSlips />} />
-            <Route path="scenario" element={<Scenario />} />
-            <Route path="validate" element={<Validate />} />
-            <Route path="settings" element={<Settings />} />
-            {/* Backtest lives inside Validate now; the direct route stays valid. */}
-            <Route path="backtest" element={<Backtest />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
+        <InsightProvider>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route index element={<Dashboard />} />
+              <Route path="field" element={<FieldMode />} />
+              <Route path="battle-plan" element={<BattlePlan />} />
+              <Route path="water-bank" element={<SeasonBank />} />
+              <Route path="slips" element={<PourSlips />} />
+              <Route path="scenario" element={<Scenario />} />
+              <Route path="validate" element={<Validate />} />
+              <Route path="settings" element={<Settings />} />
+              {/* Backtest lives inside Validate now; the direct route stays valid. */}
+              <Route path="backtest" element={<Backtest />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        </InsightProvider>
       </ErrorBoundary>
     </BrowserRouter>
   );

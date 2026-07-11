@@ -5,6 +5,7 @@ import type { ScenarioBlock, ScenarioType } from '../types/api';
 import { PageHeader, Section } from '../components/common/primitives';
 import { StatusPill, ScoreMeter } from '../components/common/status';
 import { LoadingPanel, ErrorState } from '../components/common/states';
+import { Explainable } from '../insight/Explainable';
 import { Icon, type IconName } from '../components/layout/icons';
 import { color } from '../theme/tokens';
 
@@ -134,7 +135,16 @@ export function Scenario() {
                     <ScoreMeter score={b.score} traffic={b.traffic} />
                   </div>
                 </div>
-                <DeltaChip delta={b.delta} />
+                <Explainable
+                  subject={{
+                    subject_type: 'scenario_delta',
+                    block_id: b.block_id,
+                    context: { type, days, delta: b.delta },
+                  }}
+                  label={`${b.block_id} under this scenario`}
+                >
+                  <DeltaChip delta={b.delta} />
+                </Explainable>
               </li>
             ))}
           </ol>

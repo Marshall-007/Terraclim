@@ -41,6 +41,14 @@ class DemoDate(BaseModel):
     as_of: date
 
 
+class InsightRequest(BaseModel):
+    # subject_type is validated in the engine so the 422 can list the valid set.
+    subject_type: str = Field(min_length=1, max_length=40)
+    block_id: str | None = Field(default=None, max_length=20)
+    subject_id: str | None = Field(default=None, max_length=80)
+    context: dict = Field(default_factory=dict)
+
+
 class NewBlock(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     variety: str = Field(min_length=1, max_length=60)

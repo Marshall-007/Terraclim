@@ -20,6 +20,8 @@ class Settings:
     demo_date: date
     terraclim_token: str
     ai_key: str
+    ai_base_url: str
+    ai_model: str
     cache_ttl_hours: float
     port: int
     force_fixture: bool
@@ -41,6 +43,9 @@ def get_settings() -> Settings:
         demo_date=_parse_date(demo_raw, demo_default),
         terraclim_token=token,
         ai_key=os.getenv("AI_KEY", "").strip(),
+        # OpenAI-compatible endpoint so any provider works; only the base varies.
+        ai_base_url=os.getenv("AI_BASE_URL", "https://api.openai.com").strip().rstrip("/"),
+        ai_model=os.getenv("AI_MODEL", "gpt-4o-mini").strip(),
         cache_ttl_hours=float(os.getenv("CACHE_TTL_HOURS", "6")),
         port=int(os.getenv("PORT", "8000")),
         # Tests set VINO_FORCE_FIXTURE=1 to guarantee no network is touched.

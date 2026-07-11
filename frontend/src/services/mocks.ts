@@ -25,8 +25,13 @@ import type {
   DemoDateRequest,
   DemoDateResponse,
   Driver,
+  Glossary,
+  GlossaryEntry,
   Health,
   HistoryPoint,
+  Insight,
+  InsightFact,
+  InsightRequest,
   PhotoAnalysis,
   PourSlip,
   ProviderRequest,
@@ -1178,6 +1183,538 @@ export function mockPhotos(id: string): BlockPhoto[] {
   return seededPhotos(id)
     .slice()
     .sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+// ---------- AI Insights (v2 §H / R18) ----------
+/**
+ * Deterministic insight generator mirroring the backend's template renderer:
+ * every fact is read from the same canonical engine state the screens show
+ * (statuses, slips, plans, events), assembled into grower-language prose.
+ * source is always "template" here — mock mode has no AI leg by design.
+ */
+
+const fmtMpaLoc = (v: number): string =>
+  `${v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)} MPa`;
+
+const stageWords = (s: Stage): string => s.replace('_', ' ');
+
+const STYLE_WORDS: Record<WineStyle, string> = {
+  premium_red: 'premium red',
+  red: 'red',
+  white: 'white',
+  fresh_white: 'fresh white',
+};
+
+const GLOSSARY: Glossary = [
+  {
+    term: 'ET0',
+    name: 'Reference evapotranspiration (ET0)',
+    definition:
+      'The drying power of the weather: the water a short, well-watered field would lose to the air in a day. Hot, dry, windy days push ET0 up; the vineyard’s own use scales from it.',
+    unit: 'mm/day',
+  },
+  {
+    term: 'ETc',
+    name: 'Crop evapotranspiration (ETc)',
+    definition:
+      'ET0 scaled by the crop coefficient Kc: the water the vines are expected to use at their current growth stage, before any stress throttling.',
+    unit: 'mm/day',
+  },
+  {
+    term: 'ETa',
+    name: 'Actual evapotranspiration (ETa)',
+    definition:
+      'The water the vines actually gave up, measured from satellite rather than modelled. When ETa sags below ETc the canopy is throttling — real stress, not a forecast.',
+    unit: 'mm/day',
+  },
+  {
+    term: 'Kc',
+    name: 'Crop coefficient (Kc)',
+    definition:
+      'How much of the reference thirst the vineyard actually draws, set by canopy size and stage — 0.30 at budbreak up to 0.70 at véraison. Multiply ET0 by Kc to get expected vine water use.',
+  },
+  {
+    term: 'Ks',
+    name: 'Stress coefficient (Ks)',
+    definition:
+      'The FAO-56 throttle: once soil depletion passes the readily-available threshold, vines cannot drink at full rate, so daily use is cut by Ks. It keeps the balance honest in dry spells.',
+  },
+  {
+    term: 'NDVI',
+    name: 'Normalised difference vegetation index (NDVI)',
+    definition:
+      'A satellite greenness score from 0 to 1 — how much healthy leaf area the block carries. A vigorous canopy reads 0.75+; a declining NDVI corroborates water stress.',
+  },
+  {
+    term: 'GDD',
+    name: 'Growing degree days (GDD)',
+    definition:
+      'Accumulated heat since 1 September: each day adds the mean temperature above 10 °C. GDD drives the phenology clock — budbreak, flowering, véraison and harvest each arrive at known GDD marks.',
+  },
+  {
+    term: 'MSWP',
+    name: 'Midday stem water potential (MSWP)',
+    definition:
+      'The pressure-bomb reading, in MPa (negative — more negative is drier). It is the grower’s ground truth for vine stress: bag a leaf, squeeze it in the chamber at midday, read the gauge. Vino maps its modelled depletion onto this scale.',
+    unit: 'MPa',
+  },
+  {
+    term: 'RDI',
+    name: 'Regulated deficit irrigation (RDI)',
+    definition:
+      'Deliberately under-watering at the right stage — enough stress to concentrate flavour and control vigour, never enough to stall ripening. The glide path is RDI made visible.',
+  },
+  {
+    term: 'TAW',
+    name: 'Total available water (TAW)',
+    definition:
+      'The water the root zone can hold between full and wilting — 120 mm for these soils. Depletion is expressed as a fraction of TAW so every block reads on the same scale.',
+    unit: 'mm',
+  },
+  {
+    term: 'depletion',
+    name: 'Soil-water depletion',
+    definition:
+      'How much of the root-zone reservoir the vines have used, as a fraction of TAW. 0.00 is a full profile, 1.00 is empty. Each day adds vine water use and subtracts rain and irrigation.',
+  },
+  {
+    term: 'glide path',
+    name: 'Stress glide path',
+    definition:
+      'The target depletion band for each growth stage and wine style. Riding inside the band applies the right deficit at the right time; above it the vines are too dry, below it the water is diluting the wine.',
+  },
+  {
+    term: 'zonal statistics',
+    name: 'Zonal statistics',
+    definition:
+      'Satellite rasters averaged over the block’s exact traced polygon rather than a grid cell — so a value belongs to your rows, not to a square kilometre of mixed farmland.',
+  },
+];
+
+export function mockGlossary(): Glossary {
+  return GLOSSARY;
+}
+
+const TERM_ALIAS: Record<string, string> = {
+  et0: 'ET0', eto: 'ET0', etc: 'ETc', eta: 'ETa', kc: 'Kc', ks: 'Ks',
+  ndvi: 'NDVI', gdd: 'GDD', mswp: 'MSWP', mpa: 'MSWP', 'pressure bomb': 'MSWP',
+  rdi: 'RDI', taw: 'TAW', depletion: 'depletion',
+  'glide path': 'glide path', glide_path: 'glide path',
+  'zonal statistics': 'zonal statistics', zonal_statistics: 'zonal statistics',
+};
+
+function glossaryEntry(raw: string): GlossaryEntry | null {
+  const key = TERM_ALIAS[raw.trim().toLowerCase()] ?? raw.trim();
+  return GLOSSARY.find((g) => g.term.toLowerCase() === key.toLowerCase()) ?? null;
+}
+
+/** Live per-block value for a glossary term, when one exists. */
+function termFact(term: string, def: BlockDef): InsightFact | null {
+  switch (term) {
+    case 'ET0': {
+      const d = def.drivers.find((x) => x.key === 'et0_7d');
+      return d ? { label: `${def.id} 7-day ET0`, value: `${d.value} mm/day` } : null;
+    }
+    case 'ETa':
+      return { label: `${def.id} 7-day ETa`, value: `${def.eta7} mm/day` };
+    case 'Kc':
+      return { label: `${def.id} Kc (${stageWords(def.stage)})`, value: KC[def.stage].toFixed(2) };
+    case 'NDVI':
+      return { label: `${def.id} latest NDVI`, value: def.ndvi.toFixed(2) };
+    case 'GDD':
+      return { label: `${def.id} accumulated`, value: `${Math.round(def.gdd)} GDD` };
+    case 'MSWP':
+      return { label: `${def.id} modelled MSWP`, value: fmtMpaLoc(mswpOfFraction(def.f)) };
+    case 'TAW':
+      return { label: `${def.id} TAW`, value: `${TAW} mm` };
+    case 'depletion':
+      return { label: `${def.id} depletion`, value: `${def.f.toFixed(2)} of TAW` };
+    case 'glide path':
+      return {
+        label: `${def.id} ${stageWords(def.stage)} band`,
+        value: `${def.band[0].toFixed(2)}–${def.band[1].toFixed(2)}`,
+      };
+    default:
+      return null;
+  }
+}
+
+/** Grower-language template per driver key — same wording family as the backend. */
+const DRIVER_TEXT: Record<string, { what: string; effect: string }> = {
+  et0_7d: {
+    what: 'the drying power of the weather over the last week — the millimetres a day the sun, heat, wind and dry air would pull from a well-watered canopy',
+    effect: 'Every millimetre of it must come out of the soil tank or the drip line, so a high week empties the root zone fast.',
+  },
+  rain_7d: {
+    what: 'effective rainfall banked over the last week (days under 2 mm don’t count — they evaporate off leaves and hot soil before they soak in)',
+    effect: 'Rain refills the root zone for free; a dry week leaves irrigation as the only inflow.',
+  },
+  tmax_7d: {
+    what: 'the average daily maximum temperature over the last week',
+    effect: 'Heat drives the vines’ thirst, and days much above 35 °C make them shut their leaf pores and risk scorched fruit.',
+  },
+  forecast_rain_3d: {
+    what: 'rain the forecast promises within the next three days',
+    effect: 'Meaningful forecast rain lets the engine hold irrigation back rather than double-water.',
+  },
+  eta_7d: {
+    what: 'the water the vines actually gave up last week, measured by satellite — not modelled',
+    effect: 'When measured ETa sags below the modelled expectation, the canopy is already throttling.',
+  },
+  ndvi: {
+    what: 'satellite canopy greenness on the most recent clear pass',
+    effect: 'A slipping NDVI corroborates stress; a lush one on a wet block flags excess vigour.',
+  },
+  transpiration_deficit_pct: {
+    what: 'how far actual transpiration (ETa) runs below the stage expectation (ETc)',
+    effect: 'Above ~15% the vines are visibly rationing water — the strongest single stress signal here.',
+  },
+};
+
+const PRESSURE_WORDS: Record<Driver['pressure'], string> = {
+  high: 'pushing hard on this block right now',
+  moderate: 'a moderate influence this week',
+  low: 'quiet at the moment',
+};
+
+const SCENARIO_WORDS: Record<ScenarioRequest['type'], { label: string; forcing: string }> = {
+  heatwave: { label: 'heatwave', forcing: '+6 °C and roughly +30% atmospheric demand' },
+  drought: { label: 'drought', forcing: 'all forecast rain removed' },
+  rain_event: { label: 'rain event', forcing: '+25 mm of rain over two days' },
+  cool_spell: { label: 'cool spell', forcing: '−5 °C and about −20% atmospheric demand' },
+};
+
+const ctxStr = (ctx: Record<string, unknown> | undefined, key: string): string | null => {
+  const v = ctx?.[key];
+  return typeof v === 'string' && v ? v : null;
+};
+const ctxNum = (ctx: Record<string, unknown> | undefined, key: string): number | null => {
+  const v = ctx?.[key];
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+};
+
+const MODELLED_CAVEAT =
+  'Modelled estimate — log a pressure-bomb reading to calibrate.';
+
+function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'> {
+  const blockId = req.block_id ?? ctxStr(req.context, 'block_id') ?? undefined;
+  const def = blockId ? byId(blockId) : null;
+
+  switch (req.subject_type) {
+    case 'block_status': {
+      if (!def) break;
+      const s = statusOf(def);
+      const band = `${def.band[0].toFixed(2)}–${def.band[1].toFixed(2)}`;
+      const headline =
+        s.status === 'too_dry'
+          ? `${def.name} is too dry — ${s.deviation.toFixed(2)} past its ${stageWords(def.stage)} band`
+          : s.status === 'too_wet'
+            ? `${def.name} is too wet — ${Math.abs(s.deviation).toFixed(2)} below its ${stageWords(def.stage)} band`
+            : `${def.name} is riding its ${stageWords(def.stage)} glide path`;
+      const statusSentence =
+        s.status === 'too_dry'
+          ? 'The vines have drawn past the deficit the wine style wants, so irrigation is due.'
+          : s.status === 'too_wet'
+            ? 'The soil is wetter than the deliberate deficit calls for — more water now works against the wine.'
+            : 'No correction is needed; the deficit is doing its work on the fruit.';
+      return {
+        headline,
+        explanation:
+          `The engine runs a daily water balance for this block: vine use (ET0 × Kc, throttled by stress) out, rain and irrigation in. ` +
+          `Depletion sits at ${s.depletion_fraction.toFixed(2)} of the ${TAW} mm root-zone tank against a ${band} target for ${STYLE_WORDS[def.wine_style]} in ${stageWords(def.stage)}. ${statusSentence}`,
+        facts: [
+          { label: 'Status', value: s.status.replace('_', ' ') },
+          { label: 'Depletion', value: `${s.depletion_fraction.toFixed(2)} of TAW (${s.depletion_mm.toFixed(0)} mm)` },
+          { label: 'Target band', value: band },
+          { label: 'Deviation', value: s.deviation === 0 ? 'in band' : s.deviation.toFixed(2) },
+          { label: 'Stage', value: `${stageWords(def.stage)} · ${Math.round(def.gdd)} GDD` },
+        ],
+        caveats: ['Water balance is modelled from weather and logged irrigation.', MODELLED_CAVEAT],
+      };
+    }
+
+    case 'score': {
+      if (!def) break;
+      const s = statusOf(def);
+      return {
+        headline: `Why ${def.id} scores ${s.score}`,
+        explanation:
+          `The score blends how far the block sits off its band today (70% weight) with where the 7-day projection puts it (30%). ` +
+          `A drift of 0.35 past the band reads 100 — that is the full scale. ` +
+          `Today's deviation is ${s.deviation === 0 ? 'zero — inside the band' : s.deviation.toFixed(2)}, which lands the block at ${s.score} and a "${s.traffic}" flag. Higher scores simply mean "look here first".`,
+        facts: [
+          { label: 'Score', value: `${s.score} / 100` },
+          { label: 'Traffic', value: s.traffic },
+          { label: "Today's deviation", value: s.deviation === 0 ? '0.00 (in band)' : s.deviation.toFixed(2) },
+          { label: 'Weighting', value: '70% today · 30% 7-day projection' },
+        ],
+        caveats: ['The score ranks attention across blocks; it is not a damage estimate.'],
+      };
+    }
+
+    case 'driver': {
+      if (!def || !req.subject_id) break;
+      const s = statusOf(def);
+      const d = s.drivers.find((x) => x.key === req.subject_id);
+      if (!d) throw new Error(`unknown driver ${req.subject_id}`);
+      const t = DRIVER_TEXT[d.key];
+      return {
+        headline: `${d.label}: ${d.value}${d.unit ? ` ${d.unit}` : ''}`,
+        explanation:
+          `This driver is ${t ? t.what : 'one of the signals the engine weighs for this block'}. ` +
+          `${t ? t.effect : ''} Right now it reads ${d.value}${d.unit ? ` ${d.unit}` : ''} — ${PRESSURE_WORDS[d.pressure]}.`,
+        facts: [
+          { label: d.label, value: `${d.value}${d.unit ? ` ${d.unit}` : ''}` },
+          { label: 'Pressure', value: d.pressure },
+          { label: 'Block', value: `${def.id} · ${def.name}` },
+        ],
+        caveats:
+          d.key === 'eta_7d' || d.key === 'ndvi' || d.key === 'transpiration_deficit_pct'
+            ? ['Satellite-derived over the traced block polygon (zonal statistics); cloud gaps are filled by the model.']
+            : ['From the active weather provider for this exact block location.'],
+      };
+    }
+
+    case 'mswp': {
+      if (!def) break;
+      const s = statusOf(def);
+      const est = s.mswp_estimate_mpa ?? mswpOfFraction(def.f);
+      const band = s.mswp_band_mpa ?? [0, 0];
+      return {
+        headline: `≈ ${fmtMpaLoc(est)} modelled stem water potential`,
+        explanation:
+          `This translates the block's soil-water depletion into the unit a pressure bomb reads — midday stem water potential, where more negative means drier vines. ` +
+          `Depletion of ${def.f.toFixed(2)} maps to about ${fmtMpaLoc(est)}; the ${stageWords(def.stage)} target for this wine style is ${fmtMpaLoc(Math.max(band[0], band[1]))} to ${fmtMpaLoc(Math.min(band[0], band[1]))}. It exists so the model and your gauge speak the same language.`,
+        facts: [
+          { label: 'Modelled MSWP', value: fmtMpaLoc(est) },
+          { label: 'Target band', value: `${fmtMpaLoc(Math.max(band[0], band[1]))} to ${fmtMpaLoc(Math.min(band[0], band[1]))}` },
+          { label: 'From depletion', value: `${def.f.toFixed(2)} of TAW` },
+        ],
+        caveats: [MODELLED_CAVEAT],
+      };
+    }
+
+    case 'glide_path': {
+      if (!def) break;
+      const band = `${def.band[0].toFixed(2)}–${def.band[1].toFixed(2)}`;
+      return {
+        headline: `The ${stageWords(def.stage)} glide path for ${def.name}`,
+        explanation:
+          `The shaded band is the deliberate deficit this ${STYLE_WORDS[def.wine_style]} block should ride through ${stageWords(def.stage)}: keep depletion between ${band} of the root-zone tank. ` +
+          `Enough stress concentrates the berries and tames vigour; past the top of the band the vines start rationing and ripening suffers. The solid line is 45 days of measured balance, the dashed line the 14-day projection.`,
+        facts: [
+          { label: 'Target band', value: `${band} of TAW` },
+          { label: 'Current depletion', value: def.f.toFixed(2) },
+          { label: 'Stage · style', value: `${stageWords(def.stage)} · ${STYLE_WORDS[def.wine_style]}` },
+          { label: 'Window', value: '45 d measured + 14 d projected' },
+        ],
+        caveats: ['Band targets follow FAO-56 / RDI literature per stage and wine style.'],
+      };
+    }
+
+    case 'pour_slip': {
+      if (!def) break;
+      const s = statusOf(def);
+      const slip = s.pour_slip;
+      if (slip.type === 'hold') {
+        return {
+          headline: `Hold water on ${def.name} — ${slip.hold_days} day${slip.hold_days === 1 ? '' : 's'}`,
+          explanation:
+            `The block sits wetter than the bottom of its ${stageWords(def.stage)} band, so any irrigation now pushes it further off path — diluting flavour and feeding canopy instead of fruit. ` +
+            `With no water added, daily vine use dries the profile back into band in about ${slip.hold_days} day${slip.hold_days === 1 ? '' : 's'}; recheck on ${slip.next_check}.`,
+          facts: [
+            { label: 'Instruction', value: 'hold — no irrigation' },
+            { label: 'Est. days to band', value: `${slip.hold_days}` },
+            { label: 'Next check', value: slip.next_check },
+          ],
+          caveats: ['Re-evaluated daily as weather lands; rain extends the hold.'],
+        };
+      }
+      return {
+        headline: `Pour ${slip.needed_mm.toFixed(1)} mm — ${slip.runtime_hours.toFixed(1)} h of drip`,
+        explanation:
+          `The slip aims the block back at the middle of its band, not at a full profile — the vines keep the working thirst the wine wants. ` +
+          `The gap between today's depletion and the band midpoint is ${slip.needed_mm.toFixed(1)} mm. ` +
+          `The drip line puts down ${def.rate} mm/h, which makes ${slip.runtime_hours.toFixed(1)} hours of pumping, scheduled "${slip.window}" ${slip.runtime_hours > 8 ? 'because the run does not fit a single night set' : 'so it lands with low evaporation'}.`,
+        facts: [
+          { label: 'Water needed', value: `${slip.needed_mm.toFixed(1)} mm` },
+          { label: 'Runtime', value: `${slip.runtime_hours.toFixed(1)} h @ ${def.rate} mm/h` },
+          { label: 'Window', value: slip.window },
+          { label: 'Next check', value: slip.next_check },
+        ],
+        caveats: ['Assumes the logged application rate is what the lines actually deliver.'],
+      };
+    }
+
+    case 'battle_plan_entry': {
+      if (!def) break;
+      const day = ctxStr(req.context, 'day');
+      const hours = ctxNum(req.context, 'hours');
+      const mm = ctxNum(req.context, 'mm') ?? ctxNum(req.context, 'mm_applied');
+      const dev = round3(def.f - def.band[1]);
+      const sens = STAGE_SENS(def.stage);
+      const w = STYLE_W[def.wine_style];
+      return {
+        headline: `Why ${def.name} gets water${day ? ` on ${day}` : ''}`,
+        explanation:
+          `The plan ranks thirsty blocks by glide-path deviation, multiplied by stage sensitivity and wine value, then fills each day's pumping budget from the top. ` +
+          `${def.id} is ${dev.toFixed(2)} past its band in ${stageWords(def.stage)} (a ×${sens} sensitivity stage) as a ${STYLE_WORDS[def.wine_style]} block (×${w.toFixed(2)} value weight)${hours != null ? `, earning ${hours.toFixed(1)} h${mm != null ? ` (${mm.toFixed(1)} mm)` : ''} of the budget` : ''}.`,
+        facts: [
+          ...(day ? [{ label: 'Scheduled day', value: day }] : []),
+          ...(hours != null ? [{ label: 'Allocated', value: `${hours.toFixed(1)} h${mm != null ? ` · ${mm.toFixed(1)} mm` : ''}` }] : []),
+          { label: 'Band deviation', value: dev.toFixed(2) },
+          { label: 'Stage sensitivity', value: `×${sens} (${stageWords(def.stage)})` },
+          { label: 'Style weight', value: `×${w.toFixed(2)} (${STYLE_WORDS[def.wine_style]})` },
+        ],
+        caveats: ['Re-solve the plan after any unforecast rain — priorities shift.'],
+      };
+    }
+
+    case 'battle_plan_skip': {
+      if (!def) break;
+      const day = ctxStr(req.context, 'day');
+      const wet = def.status === 'too_wet';
+      const rain = def.id === RAIN_SKIP_ID;
+      const explanation = wet
+        ? `${def.name} is already wetter than its band — watering it would push it further off path and dilute the wine, so its share of the budget goes to blocks that need it.`
+        : rain
+          ? `The forecast puts 12 mm of rain on ${def.name} within 48 hours — enough to close its deficit without running the pump. Skipping it leaves that water in the dam.`
+          : `${def.name} is inside its target band, so it earns no water this cycle; the budget concentrates on blocks that are off path.`;
+      return {
+        headline: `Why ${def.name} is skipped${day ? ` on ${day}` : ''}`,
+        explanation,
+        facts: [
+          { label: 'Reason', value: wet ? 'too wet — hold' : rain ? 'rain covers the deficit' : 'already in band' },
+          { label: 'Status', value: def.status.replace('_', ' ') },
+          { label: 'Depletion vs band', value: `${def.f.toFixed(2)} vs ${def.band[0].toFixed(2)}–${def.band[1].toFixed(2)}` },
+        ],
+        caveats: rain
+          ? ['If the forecast rain fails to land, the block re-enters the plan on the next solve.']
+          : ['Re-evaluated on every plan solve.'],
+      };
+    }
+
+    case 'season_bank': {
+      const remaining = ctxNum(req.context, 'remaining_m3') ?? 12000;
+      const bank = mockSeasonBank(remaining);
+      const short = bank.verdict === 'shortfall' || bank.verdict === 'tight';
+      return {
+        headline: short
+          ? `The dam runs dry around ${bank.run_dry_date ?? 'season end'}`
+          : 'The dam carries you through harvest',
+        explanation:
+          `The bank weighs the remaining ${remaining.toLocaleString('en-ZA')} m³ in the dam against every block's projected glide-path demand to season end (${bank.projected_demand_m3.toLocaleString('en-ZA')} m³). ` +
+          (short
+            ? `At the current burn rate the water runs out ${bank.days_short} day${bank.days_short === 1 ? '' : 's'} short of harvest. Tightening the white blocks to the lower edge of their bands is the cheapest way to close the gap.`
+            : `Projected demand fits inside the bank with margin, so no ration is needed — keep pouring to the glide paths.`),
+        facts: [
+          { label: 'Remaining', value: `${remaining.toLocaleString('en-ZA')} m³` },
+          { label: 'Projected demand', value: `${bank.projected_demand_m3.toLocaleString('en-ZA')} m³` },
+          { label: 'Verdict', value: short ? 'shortfall' : 'sufficient' },
+          ...(bank.run_dry_date ? [{ label: 'Run-dry date', value: bank.run_dry_date }] : []),
+          ...(bank.days_short > 0 ? [{ label: 'Days short', value: `${bank.days_short}` }] : []),
+        ],
+        caveats: ['Demand projection uses forecast weather and stage Kc — it moves as the season does.'],
+      };
+    }
+
+    case 'backtest_event': {
+      const date = req.subject_id ?? ctxStr(req.context, 'date');
+      const e = mockBacktest().events.find((x) => x.date === date);
+      if (!e) throw new Error(`unknown backtest event ${date}`);
+      return {
+        headline: `Caught ${e.lead_days} days early — ${e.type.replace('_', ' ')} on ${e.date}`,
+        explanation:
+          `${e.narrative} ` +
+          `The replay is information-limited: on each simulated day the engine saw only the data available up to that day plus its own forward projection — no hindsight. "Caught early" means the projection breached the band before the event landed.`,
+        facts: [
+          { label: 'Event', value: e.type.replace('_', ' ') },
+          { label: 'Date', value: e.date },
+          { label: 'Lead time', value: `${e.lead_days} days` },
+          { label: 'Blocks flagged', value: e.blocks_flagged.join(', ') },
+        ],
+        caveats: ['Replay of the recorded season, not a guarantee of future lead times.'],
+      };
+    }
+
+    case 'scenario_delta': {
+      if (!def) break;
+      const typeRaw = ctxStr(req.context, 'type') ?? req.subject_id ?? 'heatwave';
+      const type = (typeRaw in SCENARIO_DF ? typeRaw : 'heatwave') as ScenarioRequest['type'];
+      const days = ctxNum(req.context, 'days') ?? 7;
+      const dfr = SCENARIO_DF[type] * (days / 7);
+      const base = scoreCanonical(def.f, def.f, def.band);
+      const f2 = clamp(def.f + dfr, 0.03, 0.97);
+      const sc = scoreCanonical(f2, clamp(f2 + SCENARIO_DF[type], 0.03, 0.97), def.band);
+      const delta = sc.score - base.score;
+      const words = SCENARIO_WORDS[type];
+      return {
+        headline: `${def.name} under a ${days}-day ${words.label}: ${delta > 0 ? '+' : ''}${delta}`,
+        explanation:
+          `The what-if applies ${words.forcing} to the forward window and re-runs the same water balance. ` +
+          `Depletion moves from ${def.f.toFixed(2)} to about ${f2.toFixed(2)}, ${delta > 0 ? 'pushing the block further off' : delta < 0 ? 'easing the block back toward' : 'leaving the block level with'} its band — the score ${delta > 0 ? 'rises' : delta < 0 ? 'falls' : 'holds'} from ${base.score} to ${sc.score}. Blocks that jump are the ones to pre-empt.`,
+        facts: [
+          { label: 'Scenario', value: `${words.label}, ${days} days` },
+          { label: 'Score', value: `${base.score} → ${sc.score} (${delta > 0 ? '+' : ''}${delta})` },
+          { label: 'Depletion', value: `${def.f.toFixed(2)} → ${f2.toFixed(2)}` },
+          { label: 'Forcing', value: words.forcing },
+        ],
+        caveats: ['A stress test on the projection, not a forecast.'],
+      };
+    }
+
+    case 'photo_analysis': {
+      const pid = req.subject_id ?? ctxStr(req.context, 'photo_id');
+      if (def) seededPhotos(def.id);
+      let photo: BlockPhoto | undefined;
+      for (const list of photoStore.values()) {
+        photo = list.find((p) => p.photo_id === pid);
+        if (photo) break;
+      }
+      if (!photo) throw new Error(`unknown photo ${pid}`);
+      const a = photo.analysis;
+      const pdef = byId(photo.block_id);
+      return {
+        headline: a.agrees_with_model
+          ? `The canopy photo backs the model's read of ${pdef.id}`
+          : `The canopy photo disagrees with the model on ${pdef.id}`,
+        explanation:
+          `The app scores the photo with plain colour math, not ML: it picks out the canopy pixels by their green hue, then GLI — (2G−R−B)/(2G+R+B) — measures how healthily green they are, alongside canopy cover and yellowing. ` +
+          `This capture reads GLI ${a.gli_mean.toFixed(2)} with ${a.canopy_cover_pct}% cover and ${a.yellowing_pct}% yellowing — ${a.stress_hint === 'none' ? 'no visible stress' : `${a.stress_hint} stress`}, which ${a.agrees_with_model ? 'matches' : 'does not match'} the model's "${pdef.status.replace('_', ' ')}" read.`,
+        facts: [
+          { label: 'GLI (greenness)', value: a.gli_mean.toFixed(2) },
+          { label: 'Canopy cover', value: `${a.canopy_cover_pct}%` },
+          { label: 'Yellowing', value: `${a.yellowing_pct}%` },
+          { label: 'Stress hint', value: a.stress_hint },
+          { label: 'Vs model', value: a.agrees_with_model ? 'agrees' : 'differs' },
+        ],
+        caveats: ['A screening heuristic from phone-camera colour — light and angle matter; it flags, it does not diagnose.'],
+      };
+    }
+
+    case 'term': {
+      const raw = req.subject_id ?? ctxStr(req.context, 'term') ?? '';
+      const entry = glossaryEntry(raw);
+      if (!entry) throw new Error(`unknown term ${raw}`);
+      const facts: InsightFact[] = [];
+      if (entry.unit) facts.push({ label: 'Unit', value: entry.unit });
+      if (def) {
+        const f = termFact(entry.term, def);
+        if (f) facts.push(f);
+      }
+      return {
+        headline: entry.name,
+        explanation: entry.definition,
+        facts,
+        caveats: [],
+      };
+    }
+  }
+  throw new Error(`cannot explain ${req.subject_type}`);
+}
+
+export function mockInsight(req: InsightRequest): Insight {
+  return { ...insightOf(req), source: 'template', subject_type: req.subject_type };
 }
 
 /**

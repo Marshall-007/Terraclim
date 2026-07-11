@@ -1,4 +1,5 @@
 import type { BlockPhoto, StressHint } from '../../types/api';
+import { Explainable } from '../../insight/Explainable';
 import { Icon } from '../layout/icons';
 import { EmptyState } from '../common/states';
 import { fmtLongDate } from '../../lib/format';
@@ -73,7 +74,19 @@ export function PhotoGallery({ photos }: { photos: BlockPhoto[] }) {
               className="h-20 w-28 shrink-0 rounded-sm border border-line object-cover"
             />
             <div className="min-w-0 flex-1">
-              <div className="nums text-xs font-medium text-ink">{fmtLongDate(p.date)}</div>
+              <div className="nums text-xs font-medium text-ink">
+                <Explainable
+                  subject={{
+                    subject_type: 'photo_analysis',
+                    block_id: p.block_id,
+                    subject_id: p.photo_id,
+                    context: { photo_id: p.photo_id },
+                  }}
+                  label="This photo's analysis"
+                >
+                  <span>{fmtLongDate(p.date)}</span>
+                </Explainable>
+              </div>
               {p.note && (
                 <p className="mt-0.5 line-clamp-2 text-xs text-ink-muted">{p.note}</p>
               )}

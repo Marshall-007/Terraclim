@@ -5,6 +5,7 @@ import { useAsync } from '../hooks/useApi';
 import type { BlockFeature, BlockStatus } from '../types/api';
 import { PageHeader } from '../components/common/primitives';
 import { LoadingPanel, ErrorState } from '../components/common/states';
+import { Explainable } from '../insight/Explainable';
 import { Icon } from '../components/layout/icons';
 import { stageLabel, styleLabel } from '../lib/status';
 import { fmtFraction, fmtFullDate, fmtMm, fmtMpa, fmtMpaBand } from '../lib/format';
@@ -45,7 +46,12 @@ function Slip({ block, s }: { block: BlockFeature['properties']; s: BlockStatus 
         <div className="flex items-start justify-between">
           <div>
             <div className="eyebrow" style={{ color: accent }}>
-              {hold ? 'Hold advisory' : 'Irrigation slip'}
+              <Explainable
+                subject={{ subject_type: 'pour_slip', block_id: block.id }}
+                label="This pour slip"
+              >
+                <span>{hold ? 'Hold advisory' : 'Irrigation slip'}</span>
+              </Explainable>
             </div>
             <div className="mt-1 flex items-center gap-2">
               <span className="nums rounded-sm bg-slate-tint px-1.5 py-0.5 text-sm font-bold text-slate">

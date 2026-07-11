@@ -112,3 +112,5 @@ Automating RDI badly is dangerous. Leaving RDI un-instrumented is the status quo
 **"Is it handover-ready?"** Yes, and we treat that as a judged feature: clean docs, `.env.example`, one-command run, an architecture doc, and the provider seam so TerraClim can extend it without a rewrite. What we submit Monday is a working app and a path toward a real TerraClim product.
 
 **"Is the AI making the numbers up?"** No. Every number is deterministic engine output. The AI layer only translates a computed result into plain English, and it's optional — with no key set, the app returns the deterministic template and never fails.
+
+**"Is this just ChatGPT wrapped around a dashboard?"** No — the engine is deterministic FAO-56 math, and every explanation is template-rendered from the engine's own facts, not generated. An optional AI layer only rephrases those facts into smoother English, and the panel labels it when it does. Kill the AI and the app loses nothing but polish — every number, slip and plan is untouched.

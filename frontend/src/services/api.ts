@@ -20,7 +20,10 @@ import type {
   DeleteBlockResponse,
   DemoDateRequest,
   DemoDateResponse,
+  Glossary,
   Health,
+  Insight,
+  InsightRequest,
   IrrigationRequest,
   IrrigationResponse,
   ProviderRequest,
@@ -257,6 +260,19 @@ export const api = {
     served<BlockPhoto[]>(
       () => fetchJson(`/api/photos/${blockId}`),
       () => mock.mockPhotos(blockId),
+    ),
+
+  // ----- v2: AI insights (§H) -----
+  postInsight: (req: InsightRequest) =>
+    served<Insight>(
+      () => fetchJson('/api/insight', { method: 'POST', body: JSON.stringify(req) }),
+      () => mock.mockInsight(req),
+    ),
+
+  getGlossary: () =>
+    served<Glossary>(
+      () => fetchJson('/api/insight/glossary'),
+      () => mock.mockGlossary(),
     ),
 };
 

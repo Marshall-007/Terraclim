@@ -14,6 +14,7 @@ import { useAsync } from '../hooks/useApi';
 import type { SeasonBank as SeasonBankData } from '../types/api';
 import { PageHeader, Section, StatTile } from '../components/common/primitives';
 import { LoadingPanel, ErrorState } from '../components/common/states';
+import { Explainable } from '../insight/Explainable';
 import { fmtDayMonth, fmtFullDate, fmtLongDate, fmtM3 } from '../lib/format';
 import { color } from '../theme/tokens';
 
@@ -122,7 +123,15 @@ function Verdict({ data }: { data: SeasonBankData }) {
     >
       <div className="px-6 py-6">
         <div className="eyebrow" style={{ color: v.color }}>
-          {v.label}
+          <Explainable
+            subject={{
+              subject_type: 'season_bank',
+              context: { remaining_m3: data.remaining_m3 },
+            }}
+            label="Season water verdict"
+          >
+            <span>{v.label}</span>
+          </Explainable>
         </div>
         {data.run_dry_date ? (
           <>

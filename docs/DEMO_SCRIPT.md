@@ -37,6 +37,7 @@ Point at the header badge — **"Data: TerraClim ET-GEO"** — then go straight 
 - [ ] Validation view: at least one **pressure-bomb reading** and one **field photo** pre-logged on a block, plus the WaPOR/FruitLook reference series loaded from the data pack.
 - [ ] Battle Plan input pre-set to **6 hours/day, 3-day horizon** (the config that skips B7 on rain).
 - [ ] Field Mode: **manual / "simulate location" pin** set to a block as the primary path (GPS won't place you in a Stellenbosch vineyard from the venue). Phone or second tab warmed up. A canopy photo ready to capture.
+- [ ] AI Insights: the **insight panel opens on B1's hold slip** (explain affordance shows headline + facts; Esc closes).
 - [ ] Settings screen reachable; a spare/dummy token ready to demonstrate the live provider flip if you choose to show it.
 - [ ] Laptop volume off. `/api/health` tab open so you can prove "we're live."
 
@@ -108,7 +109,7 @@ Point at the header badge — **"Data: TerraClim ET-GEO"** — then go straight 
 **Say (slow down — this is the moment):**
 > "Here's B1, the Cabernet. Every other tool on earth looks at this soil moisture and says *'plenty of water, you're fine.'* Vino says the opposite. It's drifted **below** its target band — it is **too wet.** Its stem water potential models at **−0.65 MPa** against a **−1.2 to −1.0** target band — far too comfortable for a premium Cabernet at this stage. That means dilution, excess canopy, disease pressure — a weaker wine. So Vino doesn't print a watering prescription. It prints a **Hold Slip**:"
 
-**Click:** The Hold Slip. *"Do not irrigate. ~7 days for the vine to work back into its band. Watering now risks dilution and excess vigor."*
+**Click:** The Hold Slip. *"Do not irrigate. ~7 days for the vine to work back into its band. Watering now risks dilution and excess vigor."* Then click the slip's **explain** affordance and read its one-liner: "even the explanation is grower-speak — and it is generated from the engine's own numbers, not an LLM's imagination."
 
 **Say:**
 > "*Stop watering. You're diluting your Cabernet.* No other product in this competition will say that sentence — because no other product knows that over-watering is the mistake."

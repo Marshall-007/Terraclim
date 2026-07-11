@@ -66,6 +66,10 @@ export default {
           from: { transform: 'translateX(100%)' },
           to: { transform: 'translateX(0)' },
         },
+        'sheet-up': {
+          from: { transform: 'translateY(100%)' },
+          to: { transform: 'translateY(0)' },
+        },
         shimmer: {
           '100%': { transform: 'translateX(100%)' },
         },
@@ -73,6 +77,7 @@ export default {
       animation: {
         'fade-in': 'fade-in 180ms ease-out',
         'slide-in': 'slide-in 240ms cubic-bezier(0.22, 1, 0.36, 1)',
+        'sheet-up': 'sheet-up 240ms cubic-bezier(0.22, 1, 0.36, 1)',
       },
     },
   },

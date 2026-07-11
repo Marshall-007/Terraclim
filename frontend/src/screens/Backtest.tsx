@@ -13,6 +13,7 @@ import { useAsync } from '../hooks/useApi';
 import type { Backtest as BacktestData, BacktestEvent } from '../types/api';
 import { PageHeader, Section, StatTile } from '../components/common/primitives';
 import { LoadingPanel, ErrorState } from '../components/common/states';
+import { Explainable } from '../insight/Explainable';
 import { Icon, type IconName } from '../components/layout/icons';
 import { fmtDayMonth, fmtFullDate, fmtLongDate } from '../lib/format';
 import { color } from '../theme/tokens';
@@ -103,9 +104,18 @@ function EventCard({ e }: { e: BacktestEvent }) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-sm font-semibold text-ink">
-              {e.type.replace('_', ' ')}
-            </span>
+            <Explainable
+              subject={{
+                subject_type: 'backtest_event',
+                subject_id: e.date,
+                context: { date: e.date },
+              }}
+              label={`The ${e.type.replace('_', ' ')} on ${e.date}`}
+            >
+              <span className="text-sm font-semibold text-ink">
+                {e.type.replace('_', ' ')}
+              </span>
+            </Explainable>
             <span className="nums text-xs text-ink-muted">{fmtFullDate(e.date)}</span>
           </div>
           <div className="mt-1 font-display text-xl" style={{ color: accent }}>

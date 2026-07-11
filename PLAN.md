@@ -48,6 +48,7 @@ Water stops being a resource to minimize and becomes the winemaker's first instr
 - **Settings / data-source panel** — switch provider (data pack / TerraClim API / Open-Meteo), paste a masked token, validate with one live call, re-warm cache, set `as_of`. Header badge shows the active source ("Data: TerraClim ET-GEO").
 - **Field photo capture** — deterministic canopy analysis (Green Leaf Index, canopy cover %, yellowing % via published RGB/HSV indices; Pillow + numpy, no ML), corroborating the model on the Validation screen.
 - **Stem water potential (MPa)** language on every block; pressure-bomb calibration hook.
+- **AI Insights** — click-anything plain-English explanations: every score, driver, slip, skip and term opens a panel of grower-language narrative rendered from deterministic engine facts; an optional AI layer only rephrases the wording (and is labelled), never the numbers.
 
 ### Explicitly deferred (pitch as roadmap)
 ESG/water-stewardship PDF export · Collaboration hub · ML gap-fill.

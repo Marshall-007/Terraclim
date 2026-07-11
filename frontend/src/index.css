@@ -68,6 +68,28 @@
   .eyebrow {
     @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted;
   }
+
+  /* AI-Insight affordance (v2 §H): the circled-i stays quiet until the
+     wrapped element is hovered or focused; touch devices always show it. */
+  .explain-wrap {
+    @apply inline-flex min-w-0 items-center gap-1;
+  }
+  .explain-i {
+    @apply inline-flex h-[18px] w-[18px] shrink-0 cursor-pointer items-center
+      justify-center rounded-full text-ink-muted opacity-0 transition-opacity
+      duration-150 hover:bg-slate-tint hover:text-ink-soft
+      focus-visible:opacity-100 focus-visible:outline-none
+      focus-visible:ring-2 focus-visible:ring-bordeaux/40;
+  }
+  .explain-wrap:hover .explain-i,
+  .explain-wrap:focus-within .explain-i {
+    @apply opacity-100;
+  }
+  @media (hover: none) {
+    .explain-i {
+      @apply opacity-60;
+    }
+  }
 }
 
 /* Leaflet surface should feel part of the product, not a stock widget. */

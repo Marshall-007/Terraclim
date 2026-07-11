@@ -7,6 +7,7 @@ import { ValidationChart } from '../components/chart/ValidationChart';
 import { GliTrend } from '../components/chart/GliTrend';
 import { PageHeader, Section, StatTile } from '../components/common/primitives';
 import { LoadingPanel, ErrorState, EmptyState, Spinner } from '../components/common/states';
+import { Explainable } from '../insight/Explainable';
 import { BacktestPanel } from './Backtest';
 import { Icon } from '../components/layout/icons';
 import { fmtMpa, fmtSigned } from '../lib/format';
@@ -170,7 +171,14 @@ function ModelTab({ blockId }: { blockId: string }) {
       {/* agreement stats */}
       <div className="grid gap-2.5 sm:grid-cols-4">
         <StatTile
-          label="Bias (reading − model)"
+          label={
+            <Explainable
+              subject={{ subject_type: 'term', block_id: blockId, subject_id: 'MSWP' }}
+              label="Stem water potential (MPa)"
+            >
+              <span>Bias (reading − model)</span>
+            </Explainable>
+          }
           value={hasReadings ? `${fmtSigned(a.bias, 2)}` : '—'}
           unit={hasReadings ? 'MPa' : undefined}
           hint={hasReadings ? (a.bias < 0 ? 'model reads slightly wet' : a.bias > 0 ? 'model reads slightly dry' : 'no systematic drift') : 'log a reading'}

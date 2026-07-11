@@ -9,6 +9,7 @@ import { StatusPill } from '../components/common/status';
 import { LoadingPanel, ErrorState, Spinner } from '../components/common/states';
 import { PhotoCapture } from '../components/photos/PhotoCapture';
 import { PhotoGallery } from '../components/photos/PhotoGallery';
+import { Explainable } from '../insight/Explainable';
 import { Icon } from '../components/layout/icons';
 import { stageLabel } from '../lib/status';
 import { fmtFraction, fmtMm } from '../lib/format';
@@ -84,7 +85,12 @@ function Verdict({ id }: { id: string }) {
               Hold
             </div>
             <p className="mt-3 text-base" style={{ color: color.ink }}>
-              Soil is wet — {s.pour_slip.hold_days} days above target
+              <Explainable
+                subject={{ subject_type: 'pour_slip', block_id: id }}
+                label="Tonight's verdict"
+              >
+                <span>Soil is wet — {s.pour_slip.hold_days} days above target</span>
+              </Explainable>
             </p>
           </>
         ) : (
@@ -94,7 +100,14 @@ function Verdict({ id }: { id: string }) {
               <span className="ml-1 text-3xl">h</span>
             </div>
             <p className="mt-3 text-base" style={{ color: color.ink }}>
-              Pour {fmtMm(s.pour_slip.needed_mm)} · {s.pour_slip.window}
+              <Explainable
+                subject={{ subject_type: 'pour_slip', block_id: id }}
+                label="Tonight's verdict"
+              >
+                <span>
+                  Pour {fmtMm(s.pour_slip.needed_mm)} · {s.pour_slip.window}
+                </span>
+              </Explainable>
             </p>
           </>
         )}

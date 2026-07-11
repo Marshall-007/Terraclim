@@ -1,0 +1,113 @@
+{
+  "_meta": {
+    "audience": "grower",
+    "note": "Plain-language dictionary served at GET /api/insight/glossary and used by the 'term' insight subject. Definitions translate the engine's jargon into vineyard language; keep numbers illustrative, not block-specific."
+  },
+  "terms": [
+    {
+      "id": "et0",
+      "term": "ET0 (reference evapotranspiration)",
+      "aliases": ["et0", "eto", "et0_7d", "reference evapotranspiration", "reference et"],
+      "definition": "The drying power of the weather: how many millimetres of water a day the sun, heat, wind and dry air would pull out of a short, well-watered field. It is the weather's side of the water budget — a 6 mm/day spell empties the soil twice as fast as a 3 mm/day one.",
+      "why_it_matters": "Every millimetre of drying power must come out of the soil tank or your drip line, so a high-ET0 week is a thirsty week whether it feels hot or not."
+    },
+    {
+      "id": "eta",
+      "term": "ETa (actual evapotranspiration)",
+      "aliases": ["eta", "eta_7d", "actual evapotranspiration", "actual et"],
+      "definition": "What the vines and soil actually gave up to the air, usually measured from satellite. If the weather could take 6 mm but the block gave up 3.6 mm, the vines were drinking 3.6 mm a day — the gap means they were throttling back.",
+      "why_it_matters": "ETa is the measured reality check on the model: vines that drink well below their potential are telling you the water is getting hard to reach."
+    },
+    {
+      "id": "kc",
+      "term": "Kc (crop coefficient)",
+      "aliases": ["kc", "crop coefficient"],
+      "definition": "The scaling factor that turns the weather's thirst (ET0) into the vineyard's thirst. A dormant block uses about 15% of ET0 (Kc 0.15); a full canopy at veraison uses about 70% (Kc 0.70).",
+      "why_it_matters": "Kc is why the same hot day costs a January canopy four times what it costs bare winter vines."
+    },
+    {
+      "id": "ks",
+      "term": "Ks (stress coefficient)",
+      "aliases": ["ks", "stress coefficient", "water stress coefficient"],
+      "definition": "The throttle the model applies once soil water runs low: 1.0 while water is easy to reach, sliding toward 0 as the tank empties and the vines close their leaf pores. Below roughly half-empty (the 'readily available' share), every extra day of drying slows the vines further.",
+      "why_it_matters": "Ks is the model's version of vines shutting down — it is why a very dry block stops losing water quickly, and stops ripening with it."
+    },
+    {
+      "id": "ndvi",
+      "term": "NDVI (canopy greenness)",
+      "aliases": ["ndvi", "greenness", "vegetation index"],
+      "definition": "A satellite greenness score from 0 to 1. Bare soil reads around 0.1, a full healthy vine canopy 0.7 or more. Falling NDVI in mid-season means the canopy is thinning or yellowing.",
+      "why_it_matters": "It is a fortnightly aerial photo of vigour: a block sliding on NDVI while its neighbours hold steady deserves a walk-through."
+    },
+    {
+      "id": "gdd",
+      "term": "GDD (growing degree days)",
+      "aliases": ["gdd", "degree days", "growing degree days", "heat units"],
+      "definition": "The season's heat clock: each day adds the average temperature above 10 °C, accumulated from 1 September. Vines reach budbreak, flowering, veraison and harvest at roughly fixed GDD totals, so the engine reads growth stage from this clock rather than the calendar.",
+      "why_it_matters": "A hot spring runs the clock fast — GDD tells you veraison is coming early while the calendar still says you have weeks."
+    },
+    {
+      "id": "mswp",
+      "term": "MSWP / pressure bomb (midday stem water potential)",
+      "aliases": ["mswp", "pressure bomb", "pressure chamber", "stem water potential", "water potential", "mpa"],
+      "definition": "How hard the vine is pulling to get water. You seal a bagged leaf in a pressure chamber at midday and squeeze until sap just returns to the cut. Units are negative megapascals (MPa) — more negative means thirstier. Around −0.6 MPa a vine is comfortable; by −1.4 MPa it is under serious stress for most styles.",
+      "why_it_matters": "It is the ground truth of vine thirst — one reading calibrates what the model's soil numbers actually feel like to this block."
+    },
+    {
+      "id": "rdi",
+      "term": "RDI (regulated deficit irrigation)",
+      "aliases": ["rdi", "regulated deficit irrigation", "deficit irrigation"],
+      "definition": "Deliberately watering less than the vines could drink at chosen stages. A controlled thirst from fruit set through veraison keeps berries small and thick-skinned, which concentrates colour and flavour — especially in reds.",
+      "why_it_matters": "RDI is why 'stress' is not a dirty word here: the right thirst at the right stage is a winemaking tool, not a problem."
+    },
+    {
+      "id": "taw",
+      "term": "TAW (total available water)",
+      "aliases": ["taw", "total available water", "root zone capacity", "soil water capacity"],
+      "definition": "The size of the root-zone water tank: how many millimetres of water the soil can hold where the roots can actually reach it. On this farm 120 mm unless a block says otherwise.",
+      "why_it_matters": "TAW sets how long a block can coast between rain or irrigation — a small tank turns a hot week into a crisis faster."
+    },
+    {
+      "id": "depletion",
+      "term": "Depletion",
+      "aliases": ["depletion", "depletion fraction", "soil water depletion", "deficit"],
+      "definition": "How much of the root-zone tank has been used up, in millimetres or as a share of the tank. 0% means the profile is full (field capacity); 100% means nothing is left that the roots can extract.",
+      "why_it_matters": "Depletion is the single number the glide path targets — everything else in the engine exists to move it or explain it."
+    },
+    {
+      "id": "glide_path",
+      "term": "Stress glide path",
+      "aliases": ["glide path", "glidepath", "stress glide path", "target band", "band"],
+      "definition": "The season's flight plan for soil moisture: a stage-by-stage target range for depletion. Comfortable vines through flowering to build the canopy, a controlled thirst from fruit set through veraison to concentrate the berries, then easing off after harvest. Reds are flown drier than whites.",
+      "why_it_matters": "Being 'on the glide path' means the block's thirst matches what the wine style wants at this stage — above it vines shut down, below it flavour dilutes."
+    },
+    {
+      "id": "zonal_statistics",
+      "term": "Zonal statistics",
+      "aliases": ["zonal statistics", "zonal stats"],
+      "definition": "Averaging a satellite map over one block's own outline. Instead of reading a single pixel, every pixel inside the block boundary is averaged, so the block's NDVI or ETa number belongs to that block and not to the neighbour's orchard or the farm road.",
+      "why_it_matters": "It is what makes per-block satellite numbers trustworthy on a farm where blocks are smaller than a weather pixel."
+    },
+    {
+      "id": "effective_rainfall",
+      "term": "Effective rainfall",
+      "aliases": ["effective rainfall", "effective rain"],
+      "definition": "The share of rain that actually reaches the roots. Days under 2 mm evaporate off leaves and hot soil before soaking in, and anything above about 40 mm in a day runs off or drains past the root zone.",
+      "why_it_matters": "A run of 1 mm sprinkles adds nothing to the tank — the rain gauge and the root zone often disagree, and the engine budgets on the root zone."
+    },
+    {
+      "id": "transpiration_deficit",
+      "term": "Transpiration deficit",
+      "aliases": ["transpiration deficit", "transpiration_deficit_pct", "transpiration below model"],
+      "definition": "How far the vines' measured water use (ETa) runs below what an unstressed canopy would use (ET0 × Kc), as a percentage. Vines that cannot find water throttle back before they show it in the leaves.",
+      "why_it_matters": "A rising deficit is stress showing up in the plumbing days before it shows in the canopy."
+    },
+    {
+      "id": "gli",
+      "term": "GLI (green leaf index)",
+      "aliases": ["gli", "green leaf index", "gli_mean"],
+      "definition": "A greenness score computed from an ordinary phone photo using only the red, green and blue values of the canopy pixels. Healthy leaves score roughly 0.1 to 0.25; yellowing or scorched foliage drops toward zero.",
+      "why_it_matters": "It turns a row-end snapshot into a number you can track — a quick screening aid between satellite passes, not a diagnosis."
+    }
+  ]
+}

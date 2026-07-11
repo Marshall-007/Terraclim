@@ -71,6 +71,16 @@ def _block_demand_series(inp: dict, as_of: date, kc: dict) -> tuple[list[tuple[d
     return series, harvest_entry
 
 
+def block_demand_totals(block_inputs: list[dict], as_of: date, kc: dict) -> dict[str, float]:
+    """Projected irrigation demand (m³) per block over the same horizon the bank
+    uses — the insight layer reads the biggest single draw from this."""
+    totals: dict[str, float] = {}
+    for inp in block_inputs:
+        series, _ = _block_demand_series(inp, as_of, kc)
+        totals[inp["block"].id] = sum(dem for _, dem in series)
+    return totals
+
+
 def compute_bank(block_inputs: list[dict], remaining_m3: float, as_of: date, kc: dict) -> dict:
     demand_by_date: dict[date, float] = defaultdict(float)
     white_demand = 0.0

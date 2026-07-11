@@ -387,6 +387,62 @@ export interface ValidationReadingResponse {
   delta_mpa: number | null;
 }
 
+// AI Insights (v2 §H / R18)
+export type InsightSubjectType =
+  | 'block_status'
+  | 'score'
+  | 'driver'
+  | 'mswp'
+  | 'glide_path'
+  | 'pour_slip'
+  | 'battle_plan_entry'
+  | 'battle_plan_skip'
+  | 'season_bank'
+  | 'backtest_event'
+  | 'scenario_delta'
+  | 'photo_analysis'
+  | 'term';
+
+// POST /api/insight
+export interface InsightRequest {
+  subject_type: InsightSubjectType;
+  /** Present when the subject is block-scoped. */
+  block_id?: string;
+  /** e.g. driver key, backtest event date, glossary term, photo id. */
+  subject_id?: string;
+  /** Optional client extras, e.g. { type: "heatwave" } for a scenario delta. */
+  context?: Record<string, unknown>;
+}
+
+export interface InsightFact {
+  label: string;
+  value: string;
+}
+
+export interface Insight {
+  headline: string;
+  /** 2-4 plain-English sentences in grower language. */
+  explanation: string;
+  facts: InsightFact[];
+  caveats: string[];
+  /** "template" = deterministic engine text; "ai" = LLM-rephrased same facts. */
+  source: 'template' | 'ai';
+  subject_type: InsightSubjectType | string;
+}
+
+// GET /api/insight/glossary
+export interface GlossaryEntry {
+  /** Canonical key, e.g. "ET0", "Kc", "MSWP". */
+  term: string;
+  /** Full name, e.g. "Reference evapotranspiration". */
+  name: string;
+  /** Grower-language definition. */
+  definition: string;
+  unit?: string;
+}
+
+export type Glossary = GlossaryEntry[];
+
 // Photos (v2 §C / R17)
 export type StressHint = 'none' | 'mild' | 'visible';
 

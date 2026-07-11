@@ -270,6 +270,30 @@ def forward_weather(provider, lat: float, lon: float, as_of: date, days: int) ->
     return hist + fut
 
 
+def season_bank_inputs(as_of: date, provider) -> list[dict]:
+    """Per-block phenology + forward-weather inputs for the season-bank demand
+    model. Shared by the season-bank route and the insight engine."""
+    ss = season_start(as_of)
+    inputs: list[dict] = []
+    for block in load_blocks():
+        factor = ph.variety_factor(block.variety)
+        history = provider.get_daily(block.lat, block.lon, ss, as_of)
+        phen = ph.build_phenology(history, factor)
+        cum_gdd = phen[-1][1] if phen else 0.0
+        harvest_onset = next((d for d, gdd, _ in phen if gdd >= HARVEST_GDD * factor), None)
+        forward = forward_weather(provider, block.lat, block.lon, as_of, FORWARD_DAYS)
+        inputs.append(
+            {
+                "block": block,
+                "factor": factor,
+                "cum_gdd": cum_gdd,
+                "harvest_onset": harvest_onset,
+                "forward": forward,
+            }
+        )
+    return inputs
+
+
 # --- core evaluation ------------------------------------------------------
 
 def evaluate_block(

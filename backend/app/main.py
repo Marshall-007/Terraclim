@@ -12,6 +12,7 @@ from .routes import (
     briefing,
     explain,
     health,
+    insight,
     irrigation,
     photos,
     scenario,
@@ -38,7 +39,7 @@ app.add_middleware(
 )
 
 for module in (health, blocks, battle_plan, season_bank, scenario, backtest, briefing,
-               irrigation, explain, validation, photos, settings):
+               irrigation, explain, insight, validation, photos, settings):
     app.include_router(module.router)
 
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAsync } from '../hooks/useApi';
@@ -12,6 +12,7 @@ import { KeyValue } from '../components/common/primitives';
 import { LoadingPanel, ErrorState, Spinner } from '../components/common/states';
 import { PhotoCapture } from '../components/photos/PhotoCapture';
 import { PhotoGallery } from '../components/photos/PhotoGallery';
+import { Explainable } from '../insight/Explainable';
 import { Icon } from '../components/layout/icons';
 import { stageLabel, styleLabel } from '../lib/status';
 import {
@@ -36,13 +37,18 @@ const PRESSURE_W: Record<Driver['pressure'], number> = {
   low: 26,
 };
 
-function DriverBars({ drivers }: { drivers: Driver[] }) {
+function DriverBars({ drivers, blockId }: { drivers: Driver[]; blockId: string }) {
   return (
     <div className="space-y-3">
       {drivers.map((d) => (
         <div key={d.key}>
           <div className="mb-1 flex items-baseline justify-between text-xs">
-            <span className="text-ink-soft">{d.label}</span>
+            <Explainable
+              subject={{ subject_type: 'driver', block_id: blockId, subject_id: d.key }}
+              label={d.label}
+            >
+              <span className="text-ink-soft">{d.label}</span>
+            </Explainable>
             <span className="nums font-medium text-ink">
               {d.value}
               {d.unit && <span className="ml-0.5 text-ink-muted">{d.unit}</span>}
@@ -111,7 +117,22 @@ function TerrainCard({ block }: { block: BlockProperties }) {
       <dl className="mt-3 space-y-0.5">
         {rows.map((r) => (
           <div key={r.label} className="flex items-baseline justify-between gap-4 py-1">
-            <dt className="text-sm text-ink-muted">{r.label}</dt>
+            <dt className="text-sm text-ink-muted">
+              {r.label === 'Jan ET0 normal' ? (
+                <Explainable
+                  subject={{
+                    subject_type: 'term',
+                    block_id: block.id,
+                    subject_id: 'ET0',
+                  }}
+                  label="Reference evapotranspiration ET0"
+                >
+                  <span>{r.label}</span>
+                </Explainable>
+              ) : (
+                r.label
+              )}
+            </dt>
             <dd className="nums text-sm font-medium text-ink">
               {r.value ?? <span className="text-ink-muted">—</span>}
             </dd>
@@ -229,10 +250,22 @@ function PanelBody({
     <div className="space-y-6">
       {/* headline metrics */}
       <div className="flex flex-wrap items-center gap-2">
-        <StatusPill status={s.status} />
-        <TrafficBadge traffic={s.traffic} />
+        <Explainable
+          subject={{ subject_type: 'block_status', block_id: id }}
+          label="Block status"
+          className="gap-2"
+        >
+          <StatusPill status={s.status} />
+          <TrafficBadge traffic={s.traffic} />
+        </Explainable>
         <span className="ml-auto text-xs text-ink-muted">
-          {stageLabel(s.stage)} · {fmtGdd(s.gdd)}
+          {stageLabel(s.stage)} ·{' '}
+          <Explainable
+            subject={{ subject_type: 'term', block_id: id, subject_id: 'GDD' }}
+            label="Growing degree days"
+          >
+            <span className="nums">{fmtGdd(s.gdd)}</span>
+          </Explainable>
         </span>
       </div>
 
@@ -259,12 +292,17 @@ function PanelBody({
         {s.mswp_estimate_mpa != null && s.mswp_band_mpa && (
           <div className="mt-3 rounded-md border border-line bg-raised px-3 py-2.5">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <span className="nums text-sm font-semibold text-ink">
-                ≈ {fmtMpa(s.mswp_estimate_mpa)}{' '}
-                <span className="font-normal text-ink-soft">
-                  stem water potential (modelled)
+              <Explainable
+                subject={{ subject_type: 'mswp', block_id: id }}
+                label="Modelled stem water potential"
+              >
+                <span className="nums text-sm font-semibold text-ink">
+                  ≈ {fmtMpa(s.mswp_estimate_mpa)}{' '}
+                  <span className="font-normal text-ink-soft">
+                    stem water potential (modelled)
+                  </span>
                 </span>
-              </span>
+              </Explainable>
               <span className="nums text-xs text-ink-muted">
                 target {fmtMpaBand(s.mswp_band_mpa)}
               </span>
@@ -280,7 +318,17 @@ function PanelBody({
         )}
         <div className="mt-3 grid grid-cols-3 gap-2">
           <MiniStat label="Deviation" value={fmtSigned(s.deviation, 2)} accent={isWet ? color.wet : color.high} />
-          <MiniStat label="Score" value={String(s.score)} />
+          <MiniStat
+            label={
+              <Explainable
+                subject={{ subject_type: 'score', block_id: id }}
+                label="Pressure score"
+              >
+                <span>Score</span>
+              </Explainable>
+            }
+            value={String(s.score)}
+          />
           <MiniStat label="Depletion" value={`${s.depletion_mm.toFixed(0)}`} unit="mm" />
         </div>
       </div>
@@ -299,7 +347,14 @@ function PanelBody({
 
       {/* glide path chart */}
       <div>
-        <div className="mb-1 eyebrow">Stress glide path</div>
+        <div className="mb-1 eyebrow">
+          <Explainable
+            subject={{ subject_type: 'glide_path', block_id: id }}
+            label="Stress glide path"
+          >
+            <span>Stress glide path</span>
+          </Explainable>
+        </div>
         <p className="mb-3 text-xs text-ink-muted">
           45 days measured, 14 days forecast, against the {styleLabel(block.wine_style)} band.
         </p>
@@ -330,9 +385,16 @@ function PanelBody({
           )}
           <EtChart history={history} />
           <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <NdviSparkline history={history} />
+            <NdviSparkline history={history} blockId={id} />
             <div className="rounded-md border border-line bg-raised px-3 py-2 sm:min-w-[104px]">
-              <div className="text-[11px] text-ink-muted">Kc ({stageLabel(s.stage)})</div>
+              <div className="text-[11px] text-ink-muted">
+                <Explainable
+                  subject={{ subject_type: 'term', block_id: id, subject_id: 'Kc' }}
+                  label="Crop coefficient Kc"
+                >
+                  <span>Kc ({stageLabel(s.stage)})</span>
+                </Explainable>
+              </div>
               <div className="nums mt-0.5 text-lg font-semibold text-ink">
                 {history.at(-1)?.kc.toFixed(2)}
               </div>
@@ -344,15 +406,20 @@ function PanelBody({
       {/* drivers */}
       <div>
         <div className="mb-3 eyebrow">What's driving it</div>
-        <DriverBars drivers={s.drivers} />
+        <DriverBars drivers={s.drivers} blockId={id} />
       </div>
 
       {/* pour slip summary */}
       <div className="rounded-md border border-line bg-raised p-4">
         <div className="mb-2 flex items-center justify-between">
-          <span className="eyebrow">
-            {s.pour_slip.type === 'hold' ? 'Hold advisory' : 'Tonight'}
-          </span>
+          <Explainable
+            subject={{ subject_type: 'pour_slip', block_id: id }}
+            label="This pour slip"
+          >
+            <span className="eyebrow">
+              {s.pour_slip.type === 'hold' ? 'Hold advisory' : 'Tonight'}
+            </span>
+          </Explainable>
           <Link
             to={`/slips?block=${id}`}
             className="inline-flex items-center gap-1 text-xs font-medium text-bordeaux hover:text-bordeaux-dark"
@@ -400,7 +467,7 @@ function MiniStat({
   unit,
   accent,
 }: {
-  label: string;
+  label: ReactNode;
   value: string;
   unit?: string;
   accent?: string;
