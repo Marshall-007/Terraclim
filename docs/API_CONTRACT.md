@@ -273,6 +273,14 @@ Third provider reading `backend/app/data/datapack/` (gitignored): GeoTIFF raster
 
 Backtest recomputed so day-D flags use only data ≤ D plus the forward projection the engine would have had; response gains `"methodology": "information_limited"` and the UI states it. Keep the event-detection narrative honest ("projected breach N days ahead").
 
+### H. AI Insights — explain anything you click (R18)
+
+- `POST /api/insight` — body `{ "subject_type": "...", "block_id": "B4" (when block-scoped), "subject_id": "..." (e.g. driver key, event date, plan day), "context": {...} (optional client extras, e.g. scenario type) }`. `subject_type` ∈ `block_status · score · driver · mswp · glide_path · pour_slip · battle_plan_entry · battle_plan_skip · season_bank · backtest_event · scenario_delta · photo_analysis · term`.
+- Response: `{ "headline": "...", "explanation": "2-4 plain-English sentences in grower language", "facts": [{"label": "7-day ET0", "value": "6.3 mm/day"}], "caveats": ["Modelled estimate — log a pressure-bomb reading to calibrate."], "source": "template" | "ai", "subject_type": "..." }`.
+- **Deterministic-first, AI-optional (non-negotiable):** the backend assembles all facts from engine state and renders the explanation from templates — always available, no key, no network. If `AI_KEY` is set, the SAME facts may be rephrased by an LLM into more natural prose (`source: "ai"`); the AI receives only the assembled facts and may not introduce numbers or claims. Any AI failure silently falls back to the template. AI never computes; it narrates.
+- `GET /api/insight/glossary` — grower-language dictionary for terms (ET0, ETa, Kc, NDVI, GDD, MSWP/pressure bomb, RDI, TAW, depletion, glide path, Ks, zonal statistics…), also bundled in frontend mocks.
+- Frontend: a global Insight panel (right slide-in on desktop, bottom sheet on mobile) opened by clicking any explainable element — every subject type above gets an unobtrusive explain affordance; keyboard/scr-reader accessible; shows headline, body, facts, caveats, and a "source: engine template / AI-phrased" tag. Fully functional in mock mode.
+
 ## Conventions (all agents)
 
 - No secrets in git; `.env.example` only. `DEMO_DATE=2026-01-20` is the default demo date.
