@@ -57,6 +57,7 @@ dormant 0.15 · budbreak 0.30 · flowering 0.45 · fruit_set 0.60 · veraison 0.
 ### Pour Slip math
 - `needed_mm = max(0, D − mid×TAW)` where `mid = (lo+hi)/2` — bring depletion back to band midpoint.
 - `runtime_hours = needed_mm / application_rate_mm_h` (block property), rounded to 0.1 h.
+- `window`: `"tonight"` when `runtime_hours ≤ 8` (a drip set fits one night); `"next two nights"` for longer runs.
 - If status is `too_wet`: slip type `hold` with `hold_days` estimate (days for ETc to bring `f` back above `lo`, using forecast).
 
 ---
@@ -96,7 +97,7 @@ Worked example: **B4 Windberg Pinotage** (variety factor 1.00, so veraison begin
     { "key": "ndvi", "label": "NDVI", "value": 0.71, "unit": "", "pressure": "medium" },
     { "key": "transpiration_deficit_pct", "label": "Transpiration deficit", "value": 17.8, "unit": "%", "pressure": "high" }
   ],
-  "recommendation": "Apply 28.9 mm (14.5 h drip, split over two nights) to return to the veraison glide path.",
+  "recommendation": "Apply 29 mm (14.5 h drip) split over the next two nights to return to the veraison glide path.",
   "pour_slip": {
     "type": "pour", "needed_mm": 28.9, "runtime_hours": 14.5,
     "window": "next two nights", "next_check": "2026-01-23", "hold_days": null
@@ -125,38 +126,46 @@ Request:
 ```json
 { "available_hours_per_day": 6, "horizon_days": 3 }
 ```
-Response:
+Response (the engine's actual output on the deterministic demo seed, `as_of=2026-01-20`):
 ```json
 {
   "as_of": "2026-01-20",
   "plan": [
     { "day": "2026-01-20", "entries": [
       { "block_id": "B4", "hours": 6.0, "mm_applied": 12.0,
-        "reason": "Highest glide-path deviation (too dry) in veraison; no rain forecast 5 days." }
+        "reason": "Highest glide-path deviation (too dry) in veraison; no rain forecast 11 days." }
     ]},
-    { "day": "2026-01-21", "entries": [] }
+    { "day": "2026-01-21", "entries": [
+      { "block_id": "B4", "hours": 6.0, "mm_applied": 12.0,
+        "reason": "Highest glide-path deviation (too dry) in veraison; no rain forecast 11 days." }
+    ]},
+    { "day": "2026-01-22", "entries": [
+      { "block_id": "B2", "hours": 6.0, "mm_applied": 10.8,
+        "reason": "Highest glide-path deviation (too dry) in veraison; no rain forecast 14 days." }
+    ]}
   ],
   "skipped": [
-    { "block_id": "B5", "reason": "12 mm rain forecast Thursday closes the deficit without irrigation." },
-    { "block_id": "B1", "reason": "Currently too wet — irrigation would push it further off path." }
+    { "block_id": "B1", "reason": "Currently too wet — irrigation would push it further off path." },
+    { "block_id": "B7", "reason": "12 mm rain forecast within 48 h closes the deficit without irrigation." }
   ],
-  "summary": "18 available hours allocated to 3 of 7 blocks; 2 blocks skipped (forecast rain, too wet); est. 41 m³ water saved."
+  "summary": "18 available hours allocated to 2 of 7 blocks; 2 blocks skipped on forecast; est. 243 m³ water saved."
 }
 ```
 Greedy scheduler: per day, rank blocks by projected too-dry deviation × stage sensitivity (fruit_set/veraison weigh double) × wine-style weight (premium_red 1.3, red 1.15, white 1.0, fresh_white 1.0); skip blocks with ≥8 mm rain forecast within 48 h; allocate hours until block reaches band midpoint or day budget exhausts.
 
 ### `GET /api/season-bank?remaining_m3=12000`
+`verdict` is `"sufficient" | "shortfall"`. On the deterministic demo seed 12 000 m³ is sufficient:
 ```json
 {
-  "as_of": "2026-01-20", "remaining_m3": 12000,
-  "projected_demand_m3": 15400,
-  "verdict": "shortfall", "run_dry_date": "2026-02-24",
-  "days_short": 21,
-  "burn_down": [ { "date": "2026-01-20", "bank_m3": 12000, "demand_to_date_m3": 0 } ],
-  "advice": "Projected 3,400 m³ shortfall before harvest. Tighten white blocks to lower band edge to save ~2,100 m³."
+  "as_of": "2026-01-20", "season_end": "2026-03-09", "remaining_m3": 12000,
+  "projected_demand_m3": 3900,
+  "verdict": "sufficient", "run_dry_date": null,
+  "days_short": 0,
+  "burn_down": [ { "date": "2026-01-21", "bank_m3": 11416, "demand_to_date_m3": 584 } ],
+  "advice": "Bank on track: projected demand 3,900 m³ vs 12,000 m³ available."
 }
 ```
-Demand model: Σ over future days & blocks of `max(0, ETc − expected_rain) × area_m2 / 1000` restricted to keeping each block at band midpoint; forecast used for the first 14 days, stage-mean climatology after.
+When the bank cannot cover the projected demand, `verdict` flips to `"shortfall"` with a `run_dry_date`, a positive `days_short`, and advice quantifying the gap. Demand model: Σ over future days & blocks of `max(0, ETc − expected_rain) × area_m2 / 1000` restricted to keeping each block at band midpoint; forecast used for the first 14 days, stage-mean climatology after.
 
 ### `POST /api/scenario`
 Request: `{ "type": "heatwave" | "drought" | "rain_event" | "cool_spell", "days": 7 }`
@@ -177,7 +186,7 @@ Replays the engine day-by-day over the trailing window, **information-limited**:
 ```
 
 ### `GET /api/briefing`
-Farm-wide morning brief: array of per-block `{block_id, name, traffic, status, score, headline}` sorted by score desc, plus `farm_summary` string. On the deterministic demo seed the ranked order is **B4 too_dry 55 · B1 too_wet 48 · B2 too_dry 21 · B7 too_dry 19 · B3 on_track 11 · B6 on_track 11 · B5 on_track 8**, with `farm_summary` = "3 block(s) need water, 1 too wet, 3 on track. Peak pressure: B4 (55)."
+Farm-wide morning brief: array of per-block `{block_id, name, traffic, status, score, headline}` sorted by score desc, plus `farm_summary` string. On the deterministic demo seed the ranked order is **B4 too_dry 55 · B1 too_wet 48 · B2 too_dry 21 · B7 too_dry 12 · B3 on_track 11 · B6 on_track 11 · B5 on_track 8**, with `farm_summary` = "3 block(s) need water, 1 too wet, 3 on track. Peak pressure: B4 (55)." (B7's 12 reflects the seeded 12 mm rain cell two days out softening its 7-day projection — the same rain the Battle Plan skips it for.)
 
 ### `POST /api/irrigation`
 Log an irrigation event so the balance reflects it: `{ "block_id": "B1", "date": "2026-01-20", "mm": 9.0 }` → `{ "ok": true }`. Persisted to `backend/app/data/irrigation_log.json`.

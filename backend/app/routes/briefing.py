@@ -14,7 +14,10 @@ def _headline(r: dict) -> str:
     stage = r["stage"]
     if r["status"] == "too_dry":
         slip = r["pour_slip"]
-        return f"Pour {round(slip['needed_mm'])} mm ({slip['runtime_hours']} h) tonight — {stage} drifting dry."
+        return (
+            f"Pour {round(slip['needed_mm'])} mm ({slip['runtime_hours']} h, "
+            f"{slip['window']}) — {stage} drifting dry."
+        )
     if r["status"] == "too_wet":
         return f"Hold irrigation — {stage} is too wet; watering risks dilution."
     return f"On the {stage} glide path — no action needed."

@@ -15,6 +15,28 @@ from .base import DailyWeather
 HEAT_SPIKE_DATE = date(2025, 12, 4)
 HEAT_SPIKE_HALF_WIDTH_DAYS = 2
 
+# Seeded demo rain event: an isolated summer convective cell over the Leiwater
+# corner of the farm (B7) two days after the default demo date (2026-01-20). It
+# gives the Battle Plan its skip-on-rain moment — 12 mm inside the scheduler's
+# >=8 mm-within-48-h window — while staying local enough (<0.55 km of B7's
+# centroid) that every other block's canonical status numbers are untouched.
+RAIN_EVENT_MM: dict[date, float] = {date(2026, 1, 22): 12.0}
+RAIN_EVENT_CENTER_LAT = -33.9462
+RAIN_EVENT_CENTER_LON = 18.8772
+RAIN_EVENT_RADIUS_KM = 0.55
+_KM_PER_DEG_LAT = 111.0
+_KM_PER_DEG_LON = 92.4  # at ~34° S
+
+
+def _rain_event_mm(lat: float, lon: float, d: date) -> float:
+    """Rain from the seeded convective cell, if (lat, lon) sits under it on d."""
+    amount = RAIN_EVENT_MM.get(d, 0.0)
+    if not amount:
+        return 0.0
+    dy = (lat - RAIN_EVENT_CENTER_LAT) * _KM_PER_DEG_LAT
+    dx = (lon - RAIN_EVENT_CENTER_LON) * _KM_PER_DEG_LON
+    return amount if dx * dx + dy * dy <= RAIN_EVENT_RADIUS_KM**2 else 0.0
+
 
 def _unit_noise(*parts: object) -> float:
     """Deterministic pseudo-random in [0, 1) from the given parts."""
@@ -60,6 +82,9 @@ def synthetic_daily(lat: float, lon: float, d: date) -> DailyWeather:
         rain = round((2.0 + 22.0 * amount_roll) * (0.4 + 0.6 * wet_bias), 1)
     else:
         rain = 0.0
+    event_rain = _rain_event_mm(lat, lon, d)
+    if event_rain:
+        rain = round(rain + event_rain, 1)
 
     rh = 55.0 - 12.0 * phase + 20.0 * (rain > 0) + 8.0 * site
     rh = max(20.0, min(98.0, rh))

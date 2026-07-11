@@ -35,7 +35,7 @@ Point at the header badge — **"Data: TerraClim ET-GEO"** — then go straight 
       `POST /api/irrigation { "block_id": "B1", "date": "2026-01-18", "mm": 28 }`.
       A real over-irrigation event flowing through the real water balance — a grower who watered too hard two days ago, precisely the mistake Vino exists to catch. Not a mock.
 - [ ] Validation view: at least one **pressure-bomb reading** and one **field photo** pre-logged on a block, plus the WaPOR/FruitLook reference series loaded from the data pack.
-- [ ] Battle Plan input pre-set to **6 hours/day, 3-day horizon** (the config that skips B5 on rain).
+- [ ] Battle Plan input pre-set to **6 hours/day, 3-day horizon** (the config that skips B7 on rain).
 - [ ] Field Mode: **manual / "simulate location" pin** set to a block as the primary path (GPS won't place you in a Stellenbosch vineyard from the venue). Phone or second tab warmed up. A canopy photo ready to capture.
 - [ ] Settings screen reachable; a spare/dummy token ready to demonstrate the live provider flip if you choose to show it.
 - [ ] Laptop volume off. `/api/health` tab open so you can prove "we're live."
@@ -126,10 +126,10 @@ Point at the header badge — **"Data: TerraClim ET-GEO"** — then go straight 
 **Say:**
 > "Real constraint: six hours of water a day, not enough for everyone. Vino solves the schedule — ranks blocks by how far off-path they are, weighted by stage sensitivity and wine value, premium reds at véraison first. Then look at the **skipped** list."
 
-**Click:** Highlight the skipped block — **B5 Kloofstroom Chenin.**
+**Click:** Highlight the skipped block — **B7 Leiwater Chardonnay.**
 
 **Say (second climax — let it breathe):**
-> "It's **skipping B5.** Not because B5 is fine — because there's **12 mm of rain forecast Thursday** that closes the deficit for free. Vino refuses to burn water and diesel on a block the sky is about to irrigate. *Don't water, it's going to rain* — that's the difference between a weather app and an intelligence app. Bottom line at the top of the plan: three blocks watered, two skipped — one on rain, one too wet — roughly 41 cubic metres saved. One screen."
+> "It's **skipping B7.** Not because B7 is fine — it's running dry — but because there's **12 mm of rain forecast Thursday** that closes the deficit for free. Vino refuses to burn water and diesel on a block the sky is about to irrigate. *Don't water, it's going to rain* — that's the difference between a weather app and an intelligence app. Bottom line at the top of the plan: two blocks watered, two skipped — one on rain, one too wet — 243 cubic metres saved. One screen."
 
 **Judge should feel:** *It reasons about the future and the constraints together — genuinely intelligent, not a lookup table.*
 
@@ -137,10 +137,10 @@ Point at the header badge — **"Data: TerraClim ET-GEO"** — then go straight 
 
 ## Beat 7 — Season Water Bank (4:30–4:45) · *"It thinks in seasons."*
 
-**Click:** Season Water Bank — the burn-down and the *"run dry on 24 February"* verdict.
+**Click:** Season Water Bank. At the default 12 000 m³ the verdict is *"The dam carries you through harvest"* (projected demand ≈ 3 900 m³). **Drag the slider down to ~3 000 m³** to show the flip: the *"You run dry on 29 January"* verdict, 9 days short.
 
 **Say:**
-> "And it plans the whole season. At this burn rate, this dam runs dry **21 days before harvest.** Vino says so today, while there's still time to ration. Day-Zero resilience, built in."
+> "And it plans the whole season. Twelve thousand cubes in the dam? You coast through harvest. But drop that dam to three thousand — one bad pump week — and Vino says **today** that you run dry nine days short, while there's still time to ration. Day-Zero resilience, built in."
 
 **Judge should feel:** *They plan the season, not just tonight.*
 
@@ -178,7 +178,7 @@ Vino's frontend ships with a **full mock-data fallback**. Every screen in this s
 
 1. Don't announce a problem. Don't say "the Wi-Fi." Keep talking.
 2. Flip the frontend to **mock mode** (pre-toggled env / offline build already loaded in a second tab).
-3. Run the **exact same beats** — the mock fixtures reproduce the brief-core four and both climaxes: ETo/ETa/Kc/NDVI on the dashboard, the pressure-bomb + photo + backtest on Validation, B1 too-wet, B5 skipped on rain.
+3. Run the **exact same beats** — the mock fixtures reproduce the brief-core four and both climaxes: ETo/ETa/Kc/NDVI on the dashboard, the pressure-bomb + photo + backtest on Validation, B1 too-wet, B7 skipped on rain.
 4. The satellite tiles are pre-cached, so the map still renders.
 5. If a judge asks, be honest and turn it into a strength:
    > "That's our offline mock layer — the app is designed to keep working in a vineyard with no signal, which is most vineyards. The live engine on the data pack behaves identically; I can show `/api/health` responding the moment we're back on Wi-Fi."

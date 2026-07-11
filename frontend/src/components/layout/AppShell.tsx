@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 import { Icon, type IconName } from './icons';
 import { DemoBadge } from './DemoBadge';
 import { ProviderBadge } from './ProviderBadge';
@@ -138,10 +139,12 @@ export function AppShell() {
         </div>
       </header>
 
-      {/* Main */}
+      {/* Main — boundary keeps the shell/nav alive if a screen crashes. */}
       <main className="min-w-0 flex-1 pb-24 lg:pb-0">
         <div className="mx-auto max-w-content px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <Outlet />
+          <ErrorBoundary resetKey={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </div>
       </main>
 

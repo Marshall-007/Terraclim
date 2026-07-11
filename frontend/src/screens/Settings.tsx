@@ -183,19 +183,29 @@ function CacheSection({ onChanged }: { onChanged: () => void }) {
     >
       {error && <p className="text-xs text-critical">{error}</p>}
       {result ? (
-        <ul className="divide-y divide-line">
-          {result.results.map((r) => (
-            <li key={r.block_id} className="flex items-center gap-3 py-2 text-sm">
-              <Icon
-                name={r.ok ? 'check' : 'close'}
-                size={15}
-                className={r.ok ? 'text-stable' : 'text-critical'}
-              />
-              <span className="nums w-8 font-bold text-slate">{r.block_id}</span>
-              <span className="nums flex-1 text-xs text-ink-soft">{r.detail}</span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="mb-1 text-xs text-ink-muted">
+            Purged {result.purged} cache {result.purged === 1 ? 'entry' : 'entries'}, then
+            re-warmed every block from the active provider:
+          </p>
+          <ul className="divide-y divide-line">
+            {(result.rewarmed ?? []).map((r) => (
+              <li key={r.block_id} className="flex items-center gap-3 py-2 text-sm">
+                <Icon
+                  name={r.ok ? 'check' : 'close'}
+                  size={15}
+                  className={r.ok ? 'text-stable' : 'text-critical'}
+                />
+                <span className="nums w-8 font-bold text-slate">{r.block_id}</span>
+                <span className="nums flex-1 text-xs text-ink-soft">
+                  {r.ok
+                    ? `re-warmed from ${r.source ?? 'active provider'}`
+                    : r.error ?? 'refresh failed'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
       ) : (
         !error && (
           <p className="text-xs text-ink-muted">

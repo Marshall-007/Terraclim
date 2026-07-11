@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAsync } from '../hooks/useApi';
-import type { ValidationReading } from '../types/api';
+import type { ValidationReadingResponse } from '../types/api';
 import { ValidationChart } from '../components/chart/ValidationChart';
 import { GliTrend } from '../components/chart/GliTrend';
 import { PageHeader, Section, StatTile } from '../components/common/primitives';
@@ -27,7 +27,7 @@ function LogReadingForm({
   const [mpa, setMpa] = useState('-1.10');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<ValidationReading | null>(null);
+  const [result, setResult] = useState<ValidationReadingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
@@ -111,19 +111,25 @@ function LogReadingForm({
       {result && (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-line bg-raised px-3 py-2.5 text-sm">
           <Icon name="check" size={15} className="text-stable" />
-          <span className="nums font-medium text-ink">{fmtMpa(result.mswp_mpa)} logged.</span>
-          <span className="nums text-ink-soft">
-            Model that day: {fmtMpa(result.model_mpa)} —{' '}
-            {Math.abs(result.delta_mpa) < 0.005 ? (
-              'spot on.'
-            ) : (
-              <>
-                reads {Math.abs(result.delta_mpa).toFixed(2)} MPa{' '}
-                {result.delta_mpa < 0 ? 'drier (more stressed)' : 'wetter (less stressed)'} than
-                the model.
-              </>
-            )}
+          <span className="nums font-medium text-ink">
+            {fmtMpa(result.reading.mswp_mpa)} logged.
           </span>
+          {result.model_mswp_mpa != null && result.delta_mpa != null ? (
+            <span className="nums text-ink-soft">
+              Model that day: {fmtMpa(result.model_mswp_mpa)} —{' '}
+              {Math.abs(result.delta_mpa) < 0.005 ? (
+                'spot on.'
+              ) : (
+                <>
+                  reads {Math.abs(result.delta_mpa).toFixed(2)} MPa{' '}
+                  {result.delta_mpa < 0 ? 'drier (more stressed)' : 'wetter (less stressed)'} than
+                  the model.
+                </>
+              )}
+            </span>
+          ) : (
+            <span className="nums text-ink-soft">No model value for that date.</span>
+          )}
         </div>
       )}
     </div>

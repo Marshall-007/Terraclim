@@ -43,6 +43,7 @@ import type {
   Traffic,
   ValidationReading,
   ValidationReadingRequest,
+  ValidationReadingResponse,
   ValidationSeriesPoint,
   WineStyle,
 } from '../types/api';
@@ -174,7 +175,8 @@ const v2drivers = (eta7: number, ndvi: number, deficitPct: number): Driver[] => 
 // Demo farm spread — pinned to the live engine's FAO-56 Ks-adjusted actuals
 // so mock mode (the public Pages demo) matches the backend and docs exactly.
 // R6 climax: the flagship premium red B1 reads too_wet after a seeded 28 mm
-// over-irrigation event; B4 is the top too-dry block.
+// over-irrigation event; B4 is the top too-dry block. Climax 2: a seeded 12 mm
+// convective cell over B7 two days out lets the Battle Plan skip it on rain.
 const BLOCKS: BlockDef[] = [
   {
     id: 'B1', name: 'Bosberg Cabernet', variety: 'Cabernet Sauvignon',
@@ -189,6 +191,7 @@ const BLOCKS: BlockDef[] = [
     wine_style: 'premium_red', area_ha: 3.2, rate: 1.8, center: [18.8712, -33.9302],
     stage: 'veraison', band: [0.35, 0.55], f: 0.6, status: 'too_dry',
     score: 21, traffic: 'stable', gdd: 1362.8,
+    window: 'next two nights', // 10 h at 1.8 mm/h cannot fit one night
     drivers: drivers(6.0, 2.0, 32.8, 0.0, ['moderate', 'moderate', 'high', 'moderate']),
     eta7: 3.9, ndvi: 0.7, deficit: 7,
   },
@@ -215,7 +218,7 @@ const BLOCKS: BlockDef[] = [
     wine_style: 'white', area_ha: 3.6, rate: 2.4, center: [18.8724, -33.9392],
     stage: 'veraison', band: [0.3, 0.5], f: 0.41, status: 'on_track',
     score: 8, traffic: 'stable', gdd: 1241.0,
-    drivers: drivers(5.0, 6.0, 29.5, 8.0, ['moderate', 'moderate', 'moderate', 'low']),
+    drivers: drivers(5.0, 6.0, 29.5, 0.0, ['moderate', 'moderate', 'moderate', 'moderate']),
     eta7: 3.7, ndvi: 0.78, deficit: 2,
   },
   {
@@ -227,11 +230,13 @@ const BLOCKS: BlockDef[] = [
     eta7: 3.2, ndvi: 0.72, deficit: 4,
   },
   {
+    // Engine-verified: the seeded 12 mm rain event 2 days out softens the
+    // 7-day projection, so B7 scores 12 (still too_dry today).
     id: 'B7', name: 'Leiwater Chardonnay', variety: 'Chardonnay',
     wine_style: 'white', area_ha: 1.9, rate: 2.2, center: [18.8662, -33.9468],
     stage: 'veraison', band: [0.3, 0.5], f: 0.54, status: 'too_dry',
-    score: 19, traffic: 'stable', gdd: 1207.3,
-    drivers: drivers(5.8, 2.5, 31.5, 1.0, ['moderate', 'moderate', 'moderate', 'moderate']),
+    score: 12, traffic: 'stable', gdd: 1207.3,
+    drivers: drivers(5.8, 2.5, 31.5, 12.0, ['moderate', 'moderate', 'moderate', 'low']),
     eta7: 3.6, ndvi: 0.73, deficit: 6,
   },
 ];
@@ -393,9 +398,9 @@ const RECOMMENDATION: Record<string, string> = {
   B2: 'Skaliekop Shiraz is drifting 0.05 past its véraison band — one 18 mm set (10.0 h drip) brings it back to midpoint.',
   B3: 'Rivierkant Merlot is on its véraison glide path. No irrigation needed; recheck 2026-01-24.',
   B4: 'Apply 29 mm (14.5 h drip, split across the next two nights) to bring Windberg Pinotage back onto its véraison glide path — the driest block on the farm.',
-  B5: 'Kloofstroom Chenin sits mid-band in véraison with 8 mm of rain forecast — no irrigation this cycle; recheck 2026-01-25.',
+  B5: 'Kloofstroom Chenin sits mid-band in véraison — no irrigation this cycle; recheck 2026-01-25.',
   B6: 'Môrelig Sauvignon is holding its harvest band. No irrigation needed; recheck 2026-01-24.',
-  B7: 'Leiwater Chardonnay is edging past its véraison band — a light 17 mm (7.6 h) tonight returns it to midpoint.',
+  B7: 'Leiwater Chardonnay is edging past its véraison band — a light 17 mm (7.6 h) tonight returns it to midpoint, but 12 mm of forecast rain may do the job for free.',
 };
 
 /**
@@ -532,6 +537,8 @@ export function mockTimeseries(id: string, days = 45): Timeseries {
     const etc = et0 * kc;
     let rain = 0;
     if (def.status === 'too_wet' && j <= 2) rain = round1(2 + rng() * 3);
+    // The seeded convective cell over B7, two days after as_of (2026-01-22).
+    if (def.id === 'B7' && j === 2) rain = 12;
     const drift =
       def.status === 'too_dry'
         ? etc / TAW + 0.002
@@ -562,9 +569,9 @@ const HEADLINE: Record<string, string> = {
   B2: 'Drifting dry — 0.05 past band; one 10 h set brings it back.',
   B3: 'On track in véraison.',
   B4: 'Driest on the farm — 29 mm behind its band; water over the next two nights.',
-  B5: 'Mid-band in véraison; forecast rain covers the next days.',
+  B5: 'Mid-band in véraison; holding its glide path.',
   B6: 'On track through harvest.',
-  B7: 'Edging past its véraison band — light top-up tonight.',
+  B7: 'Edging dry — but 12 mm of forecast rain closes the deficit for free.',
 };
 
 export function mockBriefing(): Briefing {
@@ -606,11 +613,16 @@ const STYLE_W: Record<WineStyle, number> = {
   fresh_white: 1.0,
 };
 
+/** The block the seeded 12 mm rain cell covers — skipped, never scheduled. */
+const RAIN_SKIP_ID = 'B7';
+
 export function mockBattlePlan(req: BattlePlanRequest): BattlePlan {
   const hoursPerDay = Math.max(0.5, req.available_hours_per_day);
   const horizon = Math.max(1, Math.min(7, req.horizon_days));
 
-  const candidates = BLOCKS.filter((d) => d.status === 'too_dry')
+  const candidates = BLOCKS.filter(
+    (d) => d.status === 'too_dry' && d.id !== RAIN_SKIP_ID,
+  )
     .map((d) => {
       const dev = d.f - d.band[1];
       const priority = dev * STAGE_SENS(d.stage) * STYLE_W[d.wine_style];
@@ -628,15 +640,14 @@ export function mockBattlePlan(req: BattlePlanRequest): BattlePlan {
       if (c.remainingHours <= 0.05) continue;
       const hours = round1(Math.min(budget, c.remainingHours));
       if (hours < 0.1) continue;
-      const dev = round2(c.def.f - c.def.band[1]);
       entries.push({
         block_id: c.def.id,
         hours,
         mm_applied: round1(hours * c.def.rate),
         reason:
           idx === 0
-            ? `Highest glide-path deviation (too dry, +${dev}) in ${c.def.stage}; no rain forecast.`
-            : `Next priority (+${dev} deviation, ${c.def.wine_style.replace('_', ' ')}); topped up after higher-value blocks.`,
+            ? `Highest glide-path deviation (too dry) in ${c.def.stage}; no rain forecast 11 days.`
+            : `Elevated glide-path deviation (too dry) in ${c.def.stage}; no rain forecast 11 days.`,
       });
       c.remainingHours -= hours;
       budget -= hours;
@@ -644,31 +655,32 @@ export function mockBattlePlan(req: BattlePlanRequest): BattlePlan {
     plan.push({ day: addDays(AS_OF, day), entries });
   }
 
-  const skipped = BLOCKS.filter((d) => d.status !== 'too_dry').map((d) => ({
-    block_id: d.id,
-    reason:
-      d.status === 'too_wet'
-        ? 'Currently too wet after over-irrigation — watering now compounds the dilution risk.'
-        : d.id === 'B5'
-          ? '8 mm rain forecast within 48 h keeps véraison depletion in band without irrigation.'
-          : 'On the glide path near band midpoint; no water needed this cycle.',
-  }));
+  // Mirrors the engine: too-wet blocks and rain-covered blocks are skipped;
+  // on-track blocks simply are not scheduled.
+  const skipped = [
+    {
+      block_id: 'B1',
+      reason: 'Currently too wet — irrigation would push it further off path.',
+    },
+    {
+      block_id: RAIN_SKIP_ID,
+      reason: '12 mm rain forecast within 48 h closes the deficit without irrigation.',
+    },
+  ];
 
   const blocksWatered = new Set(
     plan.flatMap((day) => day.entries.map((e) => e.block_id)),
   ).size;
-  const totalHours = round1(
-    plan.reduce((s, d) => s + d.entries.reduce((a, e) => a + e.hours, 0), 0),
-  );
-  // Water saved vs a conventional "water the low readings" schedule —
-  // pinned to the engine's verified demo figure (contract worked example).
-  const waterSaved = 41;
+  const totalAvailable = round1(hoursPerDay * horizon);
+  // Engine-verified demo figure: B7's 14.7 mm deficit x 1.65 ha = 243 m³ that
+  // the forecast rain delivers instead of the drip lines.
+  const waterSaved = 243;
 
   return {
     as_of: AS_OF,
     plan,
     skipped,
-    summary: `${totalHours} h over ${horizon} day${horizon > 1 ? 's' : ''} allocated to ${blocksWatered} of 7 blocks; ${skipped.length} skipped on forecast and glide path; est. ${waterSaved.toLocaleString('en-ZA')} m³ water saved.`,
+    summary: `${totalAvailable} available hours allocated to ${blocksWatered} of 7 blocks; ${skipped.length} blocks skipped on forecast; est. ${waterSaved.toLocaleString('en-ZA')} m³ water saved.`,
   };
 }
 
@@ -678,12 +690,9 @@ export function mockSeasonBank(remainingM3 = 12000): SeasonBank {
   const daysToEnd = diffDays(AS_OF, SEASON_END);
   const dailyDemand = projectedDemand / daysToEnd;
 
+  // Same two-word vocabulary as the engine: 'sufficient' | 'shortfall'.
   const verdict: SeasonBank['verdict'] =
-    remainingM3 >= projectedDemand
-      ? 'ok'
-      : remainingM3 >= projectedDemand * 0.85
-        ? 'tight'
-        : 'shortfall';
+    remainingM3 >= projectedDemand ? 'sufficient' : 'shortfall';
 
   const daysToDry = remainingM3 / dailyDemand;
   const runDry =
@@ -702,10 +711,8 @@ export function mockSeasonBank(remainingM3 = 12000): SeasonBank {
   }
 
   let advice: string;
-  if (verdict === 'ok') {
-    advice = `Comfortable: projected demand of ${projectedDemand.toLocaleString('en-ZA')} m³ leaves roughly ${(remainingM3 - projectedDemand).toLocaleString('en-ZA')} m³ of buffer through harvest.`;
-  } else if (verdict === 'tight') {
-    advice = `Within margin but tight. Hold the whites (B5, B7) toward their lower band edge to protect a ~1,200 m³ reserve for the final véraison push.`;
+  if (verdict === 'sufficient') {
+    advice = `Bank on track: projected demand ${projectedDemand.toLocaleString('en-ZA')} m³ vs ${remainingM3.toLocaleString('en-ZA')} m³ available.`;
   } else {
     advice = `Projected ${shortfall.toLocaleString('en-ZA')} m³ shortfall before harvest. Tighten the white blocks to their lower band edge to recover ~2,100 m³ and push the run-dry date past ${runDry ? runDry : SEASON_END}.`;
   }
@@ -904,14 +911,16 @@ export function mockSetProvider(req: ProviderRequest): ProviderResponse {
 
 export function mockCacheRefresh(): CacheRefreshResponse {
   const defs = allDefs();
+  const purged = settingsState.cacheEntries;
   settingsState.cacheEntries = defs.length * 3;
   settingsState.oldestMinutes = 0;
   return {
     ok: true,
-    results: defs.map((d) => ({
+    purged,
+    rewarmed: defs.map((d) => ({
       block_id: d.id,
       ok: true,
-      detail: `142 archive days + 14-day forecast re-warmed in ${(0.3 + (hash(d.id) % 40) / 100).toFixed(2)} s`,
+      source: settingsState.provider,
     })),
   };
 }
@@ -983,7 +992,7 @@ function agreementOf(id: string, readings: ValidationReading[]) {
   const band = mswpBand(def.band);
   const bandMin = Math.min(band[0], band[1]);
   const bandMax = Math.max(band[0], band[1]);
-  const deltas = readings.map((r) => r.delta_mpa);
+  const deltas = readings.map((r) => r.delta_mpa ?? 0);
   const bias = deltas.reduce((s, d) => s + d, 0) / deltas.length;
   const rmse = Math.sqrt(deltas.reduce((s, d) => s + d * d, 0) / deltas.length);
   const within = readings.filter(
@@ -1011,7 +1020,7 @@ export function mockValidation(id: string): BlockValidation {
   };
 }
 
-export function mockLogReading(req: ValidationReadingRequest): ValidationReading {
+export function mockLogReading(req: ValidationReadingRequest): ValidationReadingResponse {
   const model = mockModelMswpSeries(req.block_id);
   const modelMpa =
     model.find((p) => p.date === req.date)?.mpa ??
@@ -1028,7 +1037,12 @@ export function mockLogReading(req: ValidationReadingRequest): ValidationReading
   };
   const list = seededReadings(req.block_id);
   list.push(reading);
-  return reading;
+  // Same envelope as POST /api/validation/reading on the live backend.
+  return {
+    reading,
+    model_mswp_mpa: modelMpa,
+    delta_mpa: round2(req.mswp_mpa - modelMpa),
+  };
 }
 
 // ---------- photos (v2 §C / R17) ----------

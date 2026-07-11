@@ -7,6 +7,8 @@ from datetime import date, timedelta
 DEVIATION_FULL_SCALE = 0.35
 FORECAST_WEIGHT = 0.3
 NOW_WEIGHT = 0.7
+# Longest drip run that fits a single night; beyond it the slip window widens.
+MAX_NIGHT_RUNTIME_H = 8.0
 
 
 def _round_half_up(x: float) -> int:
@@ -123,11 +125,13 @@ def build_pour_slip(
 
     needed = max(0.0, depletion_mm - mid * taw)
     runtime = round(needed / rate_mm_h, 1) if rate_mm_h > 0 else 0.0
+    # A drip set only fits one night up to ~8 h; longer runs split across two.
+    window = "tonight" if runtime <= MAX_NIGHT_RUNTIME_H else "next two nights"
     return {
         "type": "pour",
         "needed_mm": round(needed, 1),
         "runtime_hours": runtime,
-        "window": "tonight",
+        "window": window,
         "next_check": next_check,
         "hold_days": None,
     }
@@ -150,7 +154,10 @@ def recommendation(
     needed = pour_slip["needed_mm"]
     if needed <= 0.0:
         return f"On the {stage} glide path — no irrigation needed."
+    timing = (
+        "tonight" if pour_slip["window"] == "tonight" else "split over the next two nights"
+    )
     return (
-        f"Apply {round(needed)} mm ({pour_slip['runtime_hours']} h drip) tonight "
+        f"Apply {round(needed)} mm ({pour_slip['runtime_hours']} h drip) {timing} "
         f"to return to the {stage} glide path."
     )

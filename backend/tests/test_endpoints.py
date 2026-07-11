@@ -1,5 +1,6 @@
 import io
 import json
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -111,8 +112,28 @@ def test_battle_plan():
     assert r.status_code == 200
     body = r.json()
     assert len(body["plan"]) == 3
-    assert "skipped" in body
-    assert "water saved" in body["summary"]
+    # Demo-canonical schedule: the driest block (B4) gets the first water.
+    first_entries = body["plan"][0]["entries"]
+    assert first_entries and first_entries[0]["block_id"] == "B4"
+    # B1 skipped as too wet; B7 skipped on the seeded 12 mm rain within 48 h.
+    skipped = {s["block_id"]: s["reason"] for s in body["skipped"]}
+    assert "B1" in skipped and "too wet" in skipped["B1"]
+    assert "B7" in skipped and "rain" in skipped["B7"]
+    scheduled = {e["block_id"] for day in body["plan"] for e in day["entries"]}
+    assert "B7" not in scheduled
+    # The rain skip must translate into a nonzero water saving in the summary.
+    m = re.search(r"est\. ([\d,]+) m³ water saved", body["summary"])
+    assert m and int(m.group(1).replace(",", "")) > 0
+
+
+def test_pour_slip_window_scales_with_runtime():
+    # 14.5 h cannot fit a single night; short runs still say "tonight".
+    b4 = client.get("/api/blocks/B4/status").json()
+    assert b4["pour_slip"]["runtime_hours"] > 8
+    assert b4["pour_slip"]["window"] == "next two nights"
+    b7 = client.get("/api/blocks/B7/status").json()
+    assert b7["pour_slip"]["runtime_hours"] <= 8
+    assert b7["pour_slip"]["window"] == "tonight"
 
 
 def test_season_bank():

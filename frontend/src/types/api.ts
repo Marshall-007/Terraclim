@@ -182,7 +182,12 @@ export interface BattlePlan {
 }
 
 // GET /api/season-bank
-export type SeasonVerdict = 'ok' | 'tight' | 'shortfall';
+/**
+ * The engine emits 'sufficient' | 'shortfall'. 'ok' and 'tight' are legacy
+ * aliases kept so older fixtures/caches can never crash the verdict card;
+ * the UI must also tolerate unknown strings with a fallback style.
+ */
+export type SeasonVerdict = 'sufficient' | 'shortfall' | 'ok' | 'tight';
 
 export interface BurnDownPoint {
   date: string;
@@ -308,12 +313,17 @@ export interface ProviderResponse {
 export interface CacheRefreshBlockResult {
   block_id: string;
   ok: boolean;
-  detail: string;
+  /** Data source that served the re-warm (e.g. "open-meteo", "fallback"). */
+  source?: string;
+  /** Provider error detail when ok is false. */
+  error?: string;
 }
 
 export interface CacheRefreshResponse {
   ok: boolean;
-  results: CacheRefreshBlockResult[];
+  /** Number of cache entries purged before re-warming. */
+  purged: number;
+  rewarmed: CacheRefreshBlockResult[];
 }
 
 // POST /api/settings/demo-date
@@ -334,14 +344,15 @@ export interface ValidationSeriesPoint {
 }
 
 export interface ValidationReading {
-  reading_id: string;
   block_id: string;
   date: string;
   mswp_mpa: number;
   note: string | null;
-  /** Model value on the reading's date, and reading − model. */
-  model_mpa: number;
-  delta_mpa: number;
+  created_at?: string;
+  /** Mock-fixture extras — the live backend stores only the reading itself. */
+  reading_id?: string;
+  model_mpa?: number;
+  delta_mpa?: number;
 }
 
 export interface ValidationAgreement {
@@ -367,6 +378,13 @@ export interface ValidationReadingRequest {
   date: string;
   mswp_mpa: number;
   note?: string;
+}
+
+/** Response: the stored reading plus the model's value that day and the delta. */
+export interface ValidationReadingResponse {
+  reading: ValidationReading;
+  model_mswp_mpa: number | null;
+  delta_mpa: number | null;
 }
 
 // Photos (v2 §C / R17)

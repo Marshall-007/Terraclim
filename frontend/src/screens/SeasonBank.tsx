@@ -19,13 +19,26 @@ import { color } from '../theme/tokens';
 
 const PRESETS = [8000, 12000, 16000, 20000];
 
-const VERDICT_STYLE: Record<
-  SeasonBankData['verdict'],
-  { color: string; tint: string; label: string }
-> = {
+interface VerdictStyle {
+  color: string;
+  tint: string;
+  label: string;
+}
+
+// Keyed by the backend's vocabulary (sufficient | shortfall); 'ok'/'tight' are
+// legacy fixture aliases. Any unknown verdict falls back to a neutral style so
+// a vocabulary drift can never white-screen the app again.
+const VERDICT_STYLE: Record<string, VerdictStyle> = {
+  sufficient: { color: color.stable, tint: color.stableTint, label: 'Within budget' },
   ok: { color: color.stable, tint: color.stableTint, label: 'Within budget' },
   tight: { color: color.watch, tint: color.watchTint, label: 'Tight' },
   shortfall: { color: color.critical, tint: color.criticalTint, label: 'Shortfall' },
+};
+
+const VERDICT_FALLBACK: VerdictStyle = {
+  color: color.slate,
+  tint: color.slateTint,
+  label: 'Season outlook',
 };
 
 function BurnDownChart({ data }: { data: SeasonBankData }) {
@@ -101,7 +114,7 @@ function BurnDownChart({ data }: { data: SeasonBankData }) {
 }
 
 function Verdict({ data }: { data: SeasonBankData }) {
-  const v = VERDICT_STYLE[data.verdict];
+  const v = VERDICT_STYLE[data.verdict] ?? VERDICT_FALLBACK;
   return (
     <div
       className="overflow-hidden rounded-lg border"

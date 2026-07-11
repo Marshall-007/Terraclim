@@ -30,8 +30,8 @@ import type {
   SeasonBank,
   Settings,
   Timeseries,
-  ValidationReading,
   ValidationReadingRequest,
+  ValidationReadingResponse,
 } from '../types/api';
 import * as mock from './mocks';
 
@@ -39,7 +39,10 @@ const API_BASE = (import.meta.env.VITE_API_BASE ?? 'http://localhost:8000').repl
   /\/$/,
   '',
 );
-const TIMEOUT_MS = 4000;
+// Generous enough for the slowest live endpoint (concurrent scenario compute
+// runs ~6 s under a dev-mode double fetch); the mock fallback still guarantees
+// the UI never hangs past this.
+const TIMEOUT_MS = 10_000;
 
 // ---------- demo-mode signal (tiny observable) ----------
 type Listener = (demo: boolean) => void;
@@ -85,20 +88,34 @@ export const settingsSignal = {
 };
 
 // ---------- fetch helper ----------
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const res = await fetch(`${API_BASE}${path}`, {
-      ...init,
-      signal: controller.signal,
-      headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as T;
-  } finally {
-    clearTimeout(timer);
-  }
+// Identical in-flight requests share one promise (StrictMode double-mounts and
+// simultaneous screens would otherwise duplicate expensive POST computes).
+const inflight = new Map<string, Promise<unknown>>();
+
+function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const body = typeof init?.body === 'string' ? init.body : '';
+  const key = `${init?.method ?? 'GET'} ${path} ${body}`;
+  const pending = inflight.get(key);
+  if (pending) return pending as Promise<T>;
+
+  const request = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const res = await fetch(`${API_BASE}${path}`, {
+        ...init,
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return (await res.json()) as T;
+    } finally {
+      clearTimeout(timer);
+      inflight.delete(key);
+    }
+  })();
+  inflight.set(key, request);
+  return request;
 }
 
 async function served<T>(live: () => Promise<T>, fallback: () => T): Promise<T> {
@@ -226,7 +243,7 @@ export const api = {
     ),
 
   postValidationReading: (req: ValidationReadingRequest) =>
-    served<ValidationReading>(
+    served<ValidationReadingResponse>(
       () =>
         fetchJson('/api/validation/reading', {
           method: 'POST',

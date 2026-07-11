@@ -54,7 +54,7 @@ So we don't bolt the name on. TerraClim's science is the substrate; Vino is the 
 The buyer is the person whose bonus depends on the wine score and the water bill: the **estate viticulturist / farm manager** at a premium or mid-premium winery.
 
 - **SaaS per hectare under management** — the standard shape for precision-viticulture tooling, priced below a single sensor install because we have no hardware COGS. Software margins, hardware-free rollout.
-- **The value is quantified and lopsided.** One prevented over-irrigation event protects wine *quality* (the whole margin of a premium bottle), and the Battle Plan's forecast-aware skipping saves *water and diesel* every week — ~41 m³ in a single 3-day plan on our demo farm. In a drought economy, "when to stop" is worth more than "when to start."
+- **The value is quantified and lopsided.** One prevented over-irrigation event protects wine *quality* (the whole margin of a premium bottle), and the Battle Plan's forecast-aware skipping saves *water and diesel* every week — ~243 m³ in a single 3-day plan on our demo farm. In a drought economy, "when to stop" is worth more than "when to start."
 - **Expansion:** water-stewardship / ESG reporting export, co-op and estate-group tiers, a validation upsell for growers who add sensors.
 - **Distribution:** wineries cluster in co-ops and regions — land one flagship estate and the neighbours follow; viticulture is a small, reference-driven world.
 
@@ -64,7 +64,7 @@ Honest version: at a hackathon we're not claiming signed contracts. We're claimi
 
 ### 5. "How is this different from just a weather app?" *(→ Tara)*
 
-A weather app tells you it will rain. Vino tells you **not to water B5 tonight because it's going to rain, and to pour 14.5 hours of drip on B4 over the next two nights instead.** The distance between those two sentences is the entire product.
+A weather app tells you it will rain. Vino tells you **not to water B7 tonight because it's going to rain, and to pour 14.5 hours of drip on B4 over the next two nights instead.** The distance between those two sentences is the entire product.
 
 A weather app has none of this:
 - **A per-block target** — the Stress Glide Path, moving with variety, stage and wine style. Weather is farm-wide; our decisions are block-specific and *contradict each other on the same day.*
