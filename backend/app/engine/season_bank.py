@@ -1,3 +1,10 @@
+"""Season water bank: projects total irrigation demand for every block through
+to its own harvest and compares it against the water remaining in the dam.
+
+This is the "will we run out before the season ends" ledger surfaced by the
+season-bank route and insight subject, distinct from the day-to-day battle
+plan (which only schedules the next few days of pump time).
+"""
 from __future__ import annotations
 
 from collections import defaultdict
@@ -13,7 +20,7 @@ POST_HARVEST_DAYS = 30
 
 # Canonical season end: the latest per-block harvest-stage entry date (from the GDD
 # projection) plus the 30-day post-harvest window. The demand horizon runs to this
-# date — no block draws irrigation water past its own harvest, so the burn-down and
+# date. No block draws irrigation water past its own harvest, so the burn-down and
 # the shortfall verdict are bounded by when the last block comes off the vine.
 
 # Stage-mean climatology for the Cape winelands, used to extend the demand model
@@ -60,9 +67,14 @@ def _block_demand_series(inp: dict, as_of: date, kc: dict) -> tuple[list[tuple[d
             et0, rain, tmean = clim["et0"], clim["rain"], clim["tmean"]
 
         etc = et0 * kc_for(kc, stage)
+        # Net water need in mm (crop use minus rain, floored at 0 so a wet day
+        # never counts as negative demand), converted to m³ via block area:
+        # 1 mm over 1 m² = 0.001 m³, hence the /1000.
         demand_m3 = max(0.0, etc - rain) * area_m2 / 1000.0
         series.append((d, demand_m3))
 
+        # Advance the same GDD/base-10 heat-sum model phenology.py uses, so the
+        # projected stage transitions line up with the live engine's clock.
         gdd += max(0.0, tmean - 10.0)
         if onset is None and gdd >= HARVEST_GDD * factor:
             onset = d
@@ -73,7 +85,7 @@ def _block_demand_series(inp: dict, as_of: date, kc: dict) -> tuple[list[tuple[d
 
 def block_demand_totals(block_inputs: list[dict], as_of: date, kc: dict) -> dict[str, float]:
     """Projected irrigation demand (m³) per block over the same horizon the bank
-    uses — the insight layer reads the biggest single draw from this."""
+    uses. The insight layer reads the biggest single draw from this."""
     totals: dict[str, float] = {}
     for inp in block_inputs:
         series, _ = _block_demand_series(inp, as_of, kc)
@@ -82,6 +94,9 @@ def block_demand_totals(block_inputs: list[dict], as_of: date, kc: dict) -> dict
 
 
 def compute_bank(block_inputs: list[dict], remaining_m3: float, as_of: date, kc: dict) -> dict:
+    """Sum every block's projected demand into a single farm-wide burn-down
+    against the water remaining in the dam, and derive the sufficient/shortfall
+    verdict (plus, on shortfall, a concrete savings suggestion)."""
     demand_by_date: dict[date, float] = defaultdict(float)
     white_demand = 0.0
     harvest_ends: list[date] = []
@@ -101,6 +116,8 @@ def compute_bank(block_inputs: list[dict], remaining_m3: float, as_of: date, kc:
     # Canonical: latest per-block harvest entry + 30 d post-harvest window.
     season_end = max(harvest_ends) if harvest_ends else (dates[-1] if dates else as_of)
 
+    # Day-by-day cumulative demand vs the starting dam volume, so the frontend
+    # can chart the bank draining (and, if it goes negative, when).
     burn_down: list[dict] = []
     cumulative = 0.0
     run_dry_date: date | None = None
@@ -125,6 +142,9 @@ def compute_bank(block_inputs: list[dict], remaining_m3: float, as_of: date, kc:
         days_short = (dates[-1] - run_dry_date).days
 
     if verdict == "shortfall":
+        # Whites can be flown drier (toward the bottom of their glide-path band)
+        # without changing wine style intent the way under-watering a red would;
+        # 15% is a rule-of-thumb trim, not a computed optimum.
         savings = round(white_demand * 0.15)
         advice = (
             f"Projected {round(shortfall):,} m³ shortfall before harvest. "

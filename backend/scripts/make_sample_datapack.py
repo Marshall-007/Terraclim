@@ -3,7 +3,7 @@
 Run from the backend directory: `python -m scripts.make_sample_datapack`
 
 Writes CSV per-block series plus a manifest to app/data/datapack/ (gitignored). The
-data is deterministic synthetic weather from the fixture model — it is NOT TerraClim
+data is deterministic synthetic weather from the fixture model. It is NOT TerraClim
 / ET-GEO data and must never be presented as such. Its only purpose is to exercise
 the CSV data-pack code path (ETo/ETa/NDVI per block, per day) without the real,
 IP-restricted pack. The real pack drops into the same folder on Day 0.
@@ -23,6 +23,9 @@ FIELDS = ["date", "et0", "eta", "ndvi", "rain", "tmax", "tmin"]
 
 
 def build() -> None:
+    """Write one CSV per block (synthetic daily weather for the season to date)
+    plus a datapack.json manifest tying each block id to its CSV and lat/lon,
+    matching the shape DataPackProvider expects to load."""
     SERIES_DIR.mkdir(parents=True, exist_ok=True)
     start = season_start(AS_OF)
     blocks_meta = []

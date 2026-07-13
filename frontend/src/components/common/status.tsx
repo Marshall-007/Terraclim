@@ -1,3 +1,9 @@
+/**
+ * Small visual vocabulary for the two severity enums (Traffic, Status): a
+ * dot, a pill, a badge, and a fill-bar meter, all colored from the same
+ * lib/status.ts lookup so a given traffic level or status reads identically
+ * everywhere it appears in the app.
+ */
 import type { Status, Traffic } from '../../types/api';
 import { trafficMeta, statusMeta } from '../../lib/status';
 

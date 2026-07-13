@@ -1,12 +1,12 @@
-# Vino — Know when to pour.
+# Vino: Know when to pour.
 
-Vineyard water intelligence for the **TerraClim ET-GEO Hackathon 2026**. Vino turns TerraClim's 10 m ET-GEO science into the one answer the brief asks for — *irrigate, hold, or how much, per block, today* — and it is the only tool in the room that knows premium wine has a **too-wet failure mode**: it tells a grower when to pour, and when to stop.
+Vineyard water intelligence for the **TerraClim ET-GEO Hackathon 2026**. Vino turns TerraClim's 10 m ET-GEO science into the one answer the brief asks for (*irrigate, hold, or how much, per block, today*), and it is the only tool in the room that knows premium wine has a **too-wet failure mode**: it tells a grower when to pour, and when to stop.
 
 **Live demo:** https://marshall-007.github.io/Terraclim/ (runs on bundled demo data; the full stack runs locally below)
 
 ## Why it's different
 
-Standard irrigation tools treat all water stress as bad — row-crop logic. Wine grapes are farmed on **regulated deficit irrigation (RDI)**: the *right* stress at the *right* phenological stage concentrates berries and builds quality, while over-watering dilutes flavour and drives vigor and disease. Vino scores every block against a **Stress Glide Path** — a target depletion band that moves with growth stage, variety, and wine style — and flags deviation in *either* direction. "Stop watering — you're diluting your Cabernet" is a first-class alert.
+Standard irrigation tools treat all water stress as bad: row-crop logic. Wine grapes are farmed on **regulated deficit irrigation (RDI)**: the *right* stress at the *right* phenological stage concentrates berries and builds quality, while over-watering dilutes flavour and drives vigor and disease. Vino scores every block against a **Stress Glide Path** (a target depletion band that moves with growth stage, variety, and wine style) and flags deviation in *either* direction. "Stop watering: you're diluting your Cabernet" is a first-class alert.
 
 ## What it does
 
@@ -49,10 +49,10 @@ make build      # production frontend build
 
 All climate access goes through one provider interface, selected at runtime in Settings:
 
-1. **ET-GEO DataPackProvider** — reads the TerraClim data pack from a local folder (CSV series and/or GeoTIFF rasters via optional rasterio) and runs polygon zonal statistics over the traced block outlines. The pack folder is gitignored and never leaves the machine, per the hackathon data notice.
-2. **TerraClim API** — activates when a token is pasted in Settings (validated live, stored masked and server-side only).
-3. **Open-Meteo** — free fallback, no key, includes FAO-56 ET0.
-4. **Synthetic** — deterministic offline fixtures so a dead network can never kill the demo.
+1. **ET-GEO DataPackProvider**: reads the TerraClim data pack from a local folder (CSV series and/or GeoTIFF rasters via optional rasterio) and runs polygon zonal statistics over the traced block outlines. The pack folder is gitignored and never leaves the machine, per the hackathon data notice.
+2. **TerraClim API**: activates when a token is pasted in Settings (validated live, stored masked and server-side only).
+3. **Open-Meteo**: free fallback, no key, includes FAO-56 ET0.
+4. **Synthetic**: deterministic offline fixtures so a dead network can never kill the demo.
 
 ## Repository layout
 
@@ -68,6 +68,6 @@ Environment variables (backend, all optional): copy `backend/.env.example` to `b
 
 ## Team
 
-Marshall Dube · Obey Musimbo — ET-GEO Hackathon 2026.
+Marshall Dube · Obey Musimbo, ET-GEO Hackathon 2026.
 
 TerraClim data, research assets, and challenge materials remain the property of TerraClim and are never committed to this repository.

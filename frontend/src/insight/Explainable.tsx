@@ -2,7 +2,7 @@
  * Wraps any element with an unobtrusive "explain this" affordance (v2 §H):
  * a small circled-i that appears on hover/focus (always visible on touch,
  * see .explain-i in index.css) and opens the global Insight panel. The button
- * is its own target — it stops propagation so the wrapped element's existing
+ * is its own target. It stops propagation so the wrapped element's existing
  * click behaviour (rows, links, cards) is untouched.
  */
 

@@ -1,3 +1,9 @@
+/**
+ * Vite build configuration: the React plugin, the PWA plugin (installable
+ * manifest + offline service worker with runtime caching for the API and map
+ * tiles), and manual vendor chunking so the big libraries (React, Leaflet,
+ * Recharts) cache independently of app code.
+ */
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -14,7 +20,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icon.svg', 'icon-maskable.svg'],
       manifest: {
-        name: 'Vino — Vineyard Irrigation Intelligence',
+        name: 'Vino: Vineyard Irrigation Intelligence',
         short_name: 'Vino',
         description:
           'Know when to pour. Deficit-irrigation glide-path guidance for wine blocks.',
@@ -59,7 +65,7 @@ export default defineConfig({
             },
           },
           {
-            // Esri World Imagery satellite basemap (R10) — cached the same way
+            // Esri World Imagery satellite basemap (R10): cached the same way
             // so the offline demo keeps its aerial view.
             urlPattern: ({ url }) => url.hostname.includes('arcgisonline.com'),
             handler: 'CacheFirst',

@@ -1,3 +1,12 @@
+"""What-if weather perturbations for the scenario endpoint.
+
+Takes the same forward-looking weather series the forecast engine projects
+on and nudges it to simulate a named event (heatwave, drought, rain event,
+cool spell), so a block can be re-evaluated against the perturbed series and
+diffed against the baseline to show a grower "what would this do to my
+score." Never touches historical weather or the water balance directly.
+"""
+
 from __future__ import annotations
 
 from dataclasses import replace
@@ -15,6 +24,14 @@ PERTURBATION_STORY = {
 
 
 def perturb_forward(forward: list[DailyWeather], kind: str, days: int) -> list[DailyWeather]:
+    """Return a copy of `forward` with `kind` applied over its first `days` days.
+
+    Each `DailyWeather` is copied rather than mutated in place, so the caller's
+    baseline series stays intact for the delta comparison against the perturbed
+    run. `rain_event` is a fixed two-day event regardless of `days` (it models a
+    single passing storm, not a sustained pattern); the other three kinds scale
+    with `days`, matching the PERTURBATION_STORY text above.
+    """
     out: list[DailyWeather] = []
     for i, w in enumerate(forward):
         w = replace(w)
@@ -26,7 +43,7 @@ def perturb_forward(forward: list[DailyWeather], kind: str, days: int) -> list[D
             elif kind == "drought":
                 w.rain = 0.0
             elif kind == "rain_event" and i < 2:
-                w.rain += 12.5
+                w.rain += 12.5  # 12.5 mm x 2 days = the 25 mm named in PERTURBATION_STORY
             elif kind == "cool_spell":
                 w.tmax -= 5.0
                 w.tmin -= 5.0

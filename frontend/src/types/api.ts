@@ -1,6 +1,6 @@
 /**
  * TypeScript mirror of docs/API_CONTRACT.md (v1 + the Contract v2 addendum).
- * These shapes are binding — the typed client (services/api.ts) and the mock
+ * These shapes are binding: the typed client (services/api.ts) and the mock
  * fixtures (services/mocks.ts) both satisfy exactly these interfaces.
  */
 
@@ -33,7 +33,7 @@ export interface Health {
   cache_age_minutes: number;
 }
 
-// GET /api/blocks — GeoJSON FeatureCollection
+// GET /api/blocks: GeoJSON FeatureCollection
 export interface BlockTerrain {
   elevation_m: number;
   slope_deg: number;
@@ -52,7 +52,7 @@ export interface BlockProperties {
   taw_mm: number;
   /** True for blocks traced in-app (POST /api/blocks); only these are deletable. */
   user_created?: boolean;
-  /** TerraClim terrain + long-term normals — present once the data pack loads. */
+  /** TerraClim terrain + long-term normals (present once the data pack loads). */
   terrain?: BlockTerrain;
 }
 
@@ -106,11 +106,11 @@ export interface BlockStatus {
   pour_slip: PourSlip;
   /** Modelled midday stem water potential equivalent (MPa, negative). v2 §B. */
   mswp_estimate_mpa?: number;
-  /** MPa at [band lo, band hi] — the target expressed in grower units. */
+  /** MPa at [band lo, band hi]: the target expressed in grower units. */
   mswp_band_mpa?: [number, number];
 }
 
-/** Status object augmented with a baseline delta — /api/scenario response. */
+/** Status object augmented with a baseline delta (the /api/scenario response). */
 export interface ScenarioBlock extends BlockStatus {
   delta: number;
 }
@@ -120,7 +120,7 @@ export interface HistoryPoint {
   date: string;
   et0: number;
   etc: number;
-  /** Crop coefficient in effect that day — a judged per-day signal. */
+  /** Crop coefficient in effect that day: a judged per-day signal. */
   kc: number;
   rain: number;
   irrigation_mm: number;
@@ -233,7 +233,7 @@ export interface Backtest {
   window: [string, string];
   events: BacktestEvent[];
   series: BacktestSeriesPoint[];
-  /** v2 §G — day-D flags use only data ≤ D; the UI states this. */
+  /** v2 §G: day-D flags use only data ≤ D; the UI states this. */
   methodology?: 'information_limited' | string;
 }
 
@@ -267,7 +267,7 @@ export interface IrrigationResponse {
 // Contract v2 addendum
 // ---------------------------------------------------------------------------
 
-// POST /api/blocks (v2 §F — traced block polygons)
+// POST /api/blocks (v2 §F: traced block polygons)
 export interface CreateBlockRequest {
   name: string;
   variety: string;
@@ -290,7 +290,7 @@ export type ProviderName = 'open-meteo' | 'terraclim' | 'datapack';
 export interface Settings {
   provider: ProviderName | string;
   terraclim_ready: boolean;
-  /** "unset" | "set (••••1234)" — the token value is never returned. */
+  /** "unset" | "set (••••1234)": the token value is never returned. */
   token_status: string;
   cache: { entries: number; oldest_minutes: number };
   as_of: string;
@@ -349,7 +349,7 @@ export interface ValidationReading {
   mswp_mpa: number;
   note: string | null;
   created_at?: string;
-  /** Mock-fixture extras — the live backend stores only the reading itself. */
+  /** Mock-fixture extras: the live backend stores only the reading itself. */
   reading_id?: string;
   model_mpa?: number;
   delta_mpa?: number;
@@ -367,7 +367,7 @@ export interface BlockValidation {
   model_series: ValidationSeriesPoint[];
   readings: ValidationReading[];
   reference_series: ValidationSeriesPoint[];
-  /** e.g. "wapor", "fruitlook" — or "pending_datapack" when reference_series is []. */
+  /** e.g. "wapor", "fruitlook", or "pending_datapack" when reference_series is []. */
   reference_source: string;
   agreement: ValidationAgreement;
 }

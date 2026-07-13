@@ -8,6 +8,13 @@ import { Icon } from '../components/layout/icons';
 import { fmtHours, fmtLongDate, fmtMm } from '../lib/format';
 import { color } from '../theme/tokens';
 
+/**
+ * Battle Plan screen: given a daily pumping-hours budget and a horizon, asks
+ * the engine to allocate water across blocks by priority and renders the
+ * resulting day-by-day schedule, plus which blocks were deliberately skipped
+ * and why.
+ */
+
 const HORIZONS = [1, 2, 3, 5, 7];
 
 function Stepper({
@@ -67,7 +74,7 @@ export function BattlePlan() {
       <PageHeader
         eyebrow="Constraint-solved schedule"
         title="Battle Plan"
-        subtitle="Set the water you have and Vino orders the blocks by glide-path deviation, stage sensitivity and wine value — skipping anything rain or over-watering will handle."
+        subtitle="Set the water you have and Vino orders the blocks by glide-path deviation, stage sensitivity and wine value, skipping anything rain or over-watering will handle."
       />
 
       <Section>
@@ -127,7 +134,7 @@ export function BattlePlan() {
                     </div>
                     {day.entries.length === 0 ? (
                       <div className="rounded-md border border-dashed border-line px-4 py-3 text-xs text-ink-muted">
-                        Budget held — highest-priority blocks already satisfied.
+                        Budget held: highest-priority blocks already satisfied.
                       </div>
                     ) : (
                       <div className="space-y-2">

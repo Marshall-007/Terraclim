@@ -10,7 +10,7 @@ export function DemoBadge({ compact = false }: { compact?: boolean }) {
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-pill border border-watch/40 bg-watch-tint px-2.5 py-1 text-[11px] font-semibold text-watch"
-      title="Backend not reachable — showing bundled demo fixtures that match the API contract."
+      title="Backend not reachable: showing bundled demo fixtures that match the API contract."
     >
       <span className="h-1.5 w-1.5 rounded-full bg-watch" aria-hidden />
       {compact ? 'Demo' : 'Demo data'}

@@ -1,3 +1,8 @@
+/**
+ * Generic layout primitives shared by every screen: a page-level header, a
+ * card-like section wrapper, a labelled stat tile, and a label/value row.
+ * Keeping these in one place is what gives the app its consistent rhythm.
+ */
 import type { ReactNode } from 'react';
 
 export function PageHeader({

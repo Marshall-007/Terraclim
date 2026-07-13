@@ -15,6 +15,18 @@ import { stageLabel } from '../lib/status';
 import { fmtFraction, fmtMm } from '../lib/format';
 import { color } from '../theme/tokens';
 
+/**
+ * Field Mode: the one-thumb screen a grower opens standing in the vineyard.
+ * "Use my location" geolocates and matches the GPS fix against the traced
+ * block polygons; failing that (or on desktop) they pick a block chip
+ * directly. Once a block is chosen it shows tonight's single instruction
+ * plus an in-field photo capture.
+ */
+
+// Local state machine for the geolocation attempt: idle (nothing tried yet)
+// -> locating (waiting on the browser) -> resolves to either idle again
+// (a containing block was found and selected) or outside/error (no match /
+// permission denied), both of which fall back to manual block selection.
 type GeoState =
   | { kind: 'idle' }
   | { kind: 'locating' }
@@ -89,7 +101,7 @@ function Verdict({ id }: { id: string }) {
                 subject={{ subject_type: 'pour_slip', block_id: id }}
                 label="Tonight's verdict"
               >
-                <span>Soil is wet — {s.pour_slip.hold_days} days above target</span>
+                <span>Soil is wet: {s.pour_slip.hold_days} days above target</span>
               </Explainable>
             </p>
           </>
@@ -140,7 +152,7 @@ function Verdict({ id }: { id: string }) {
 
 /**
  * In-field canopy capture (R17): shoot, upload, and get the screening read
- * back immediately — the "prove it where you stand" leg of the trust story.
+ * back immediately: the "prove it where you stand" leg of the trust story.
  */
 function FieldPhoto({ blockId }: { blockId: string }) {
   const [lastPhoto, setLastPhoto] = useState<BlockPhoto | null>(null);
@@ -148,7 +160,7 @@ function FieldPhoto({ blockId }: { blockId: string }) {
     <div className="card p-5">
       <div className="eyebrow mb-1">Field photo</div>
       <p className="mb-3 text-xs text-ink-muted">
-        Capture the canopy right here — GLI, cover and yellowing are checked
+        Capture the canopy right here: GLI, cover and yellowing are checked
         against the model's read of this block.
       </p>
       <PhotoCapture blockId={blockId} onUploaded={setLastPhoto} />
@@ -166,6 +178,8 @@ export function FieldMode() {
   const [selected, setSelected] = useState<string | null>(null);
   const [geo, setGeo] = useState<GeoState>({ kind: 'idle' });
 
+  // Kicks off the browser's async geolocation prompt; the result lands in one
+  // of the two callbacks below, both of which resolve `geo` to a terminal state.
   const locate = () => {
     if (!('geolocation' in navigator)) {
       setGeo({ kind: 'error', message: 'This device has no GPS. Pick your block below.' });

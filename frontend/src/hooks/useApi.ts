@@ -25,6 +25,10 @@ export function useAsync<T>(
   const run = useCallback(fetcher, deps);
 
   useEffect(() => {
+    // `active` guards against setting state from a stale request: if `deps`
+    // change (or reload() fires) before this one resolves, the cleanup below
+    // flips it false and the late response is dropped instead of clobbering
+    // newer state.
     let active = true;
     setLoading(true);
     setError(null);
@@ -47,6 +51,8 @@ export function useAsync<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run, nonce]);
 
+  // reload() has no real dependency to change, so it bumps this counter to
+  // force the effect above to re-run on demand.
   const reload = useCallback(() => setNonce((n) => n + 1), []);
   return { data, loading, error, reload };
 }

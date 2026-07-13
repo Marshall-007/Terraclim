@@ -1,3 +1,9 @@
+/**
+ * The app's entire icon set as a single sprite-free component: a hand-picked,
+ * hand-drawn 24x24 stroke icon per name, rendered by <Icon>. Keeping every
+ * path in one lookup table avoids pulling in an icon library for a couple
+ * dozen shapes.
+ */
 import type { SVGProps } from 'react';
 
 type IconName =

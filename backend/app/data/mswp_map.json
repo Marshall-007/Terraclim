@@ -3,7 +3,7 @@
     "quantity": "midday stem water potential (MSWP)",
     "unit": "MPa",
     "modelled": true,
-    "note": "Modelled MSWP equivalent, not a measured value. Depletion fraction is mapped to a stage-dependent MPa range by piecewise-linear interpolation between anchors. Anchors are literature-plausible RDI thresholds (Deloire/Girona/Williams; premium reds run a deeper pre-veraison to veraison deficit than whites). Calibrate to a block with one pressure-bomb reading — there is no universal fraction->MPa conversion.",
+    "note": "Modelled MSWP equivalent, not a measured value. Depletion fraction is mapped to a stage-dependent MPa range by piecewise-linear interpolation between anchors. Anchors are literature-plausible RDI thresholds (Deloire/Girona/Williams; premium reds run a deeper pre-veraison to veraison deficit than whites). Calibrate to a block with one pressure-bomb reading: there is no universal fraction->MPa conversion.",
     "interpolation": "piecewise_linear",
     "clamp": true
   },

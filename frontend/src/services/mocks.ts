@@ -69,6 +69,12 @@ const KC: Record<Stage, number> = {
 };
 
 // ---------- deterministic RNG ----------
+// Mock series (timeseries, polygons, glossary facts, etc.) must look random
+// but be identical across reloads and across the demo Pages deployment, so we
+// never use Math.random(). Every generator below seeds a PRNG from a hash of
+// the block id (or similar stable key) instead.
+
+/** Mulberry32: a small, fast, seedable PRNG. Returns a () => number in [0, 1). */
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -80,6 +86,7 @@ function mulberry32(seed: number): () => number {
   };
 }
 
+/** FNV-1a string hash, used to turn a block id into a stable PRNG seed. */
 const hash = (s: string): number => {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -152,7 +159,7 @@ const drivers = (
   { key: 'forecast_rain_3d', label: 'Rain next 3 days', value: fc, unit: 'mm', pressure: p[3] },
 ];
 
-/** v2 §A drivers — present because the mock farm has an ETa/NDVI source. */
+/** v2 §A drivers: present because the mock farm has an ETa/NDVI source. */
 const v2drivers = (eta7: number, ndvi: number, deficitPct: number): Driver[] => [
   {
     key: 'eta_7d',
@@ -177,7 +184,7 @@ const v2drivers = (eta7: number, ndvi: number, deficitPct: number): Driver[] => 
   },
 ];
 
-// Demo farm spread — pinned to the live engine's FAO-56 Ks-adjusted actuals
+// Demo farm spread: pinned to the live engine's FAO-56 Ks-adjusted actuals
 // so mock mode (the public Pages demo) matches the backend and docs exactly.
 // R6 climax: the flagship premium red B1 reads too_wet after a seeded 28 mm
 // over-irrigation event; B4 is the top too-dry block. Climax 2: a seeded 12 mm
@@ -257,6 +264,13 @@ const VERAISON_BAND: Record<WineStyle, TargetBand> = {
 const userDefs: BlockDef[] = [];
 let userSeq = 0;
 
+/**
+ * Registers a user-traced block (Field Mode "trace a block" flow) as a mock
+ * fixture: derives its centroid and area from the traced ring, and invents a
+ * plausible status by jittering the depletion fraction around the veraison
+ * band midpoint for its wine style, so a freshly traced block looks sane
+ * on the map and status card without any real sensor history behind it.
+ */
 export function mockCreateBlock(req: CreateBlockRequest): BlockFeature {
   const id = `U${++userSeq}`;
   const ring = req.geometry.coordinates[0] ?? [];
@@ -399,13 +413,13 @@ function pourSlip(def: BlockDef): PourSlip {
 }
 
 const RECOMMENDATION: Record<string, string> = {
-  B1: 'Stop watering Bosberg Cabernet. After the 28 mm over-irrigation it sits 0.24 wetter than its véraison band — more water now dilutes the flagship red and drives excess canopy vigor. Hold ~7 days for ETc to dry it back into band.',
-  B2: 'Skaliekop Shiraz is drifting 0.05 past its véraison band — one 18 mm set (10.0 h drip) brings it back to midpoint.',
+  B1: 'Stop watering Bosberg Cabernet. After the 28 mm over-irrigation it sits 0.24 wetter than its véraison band. More water now dilutes the flagship red and drives excess canopy vigor. Hold ~7 days for ETc to dry it back into band.',
+  B2: 'Skaliekop Shiraz is drifting 0.05 past its véraison band: one 18 mm set (10.0 h drip) brings it back to midpoint.',
   B3: 'Rivierkant Merlot is on its véraison glide path. No irrigation needed; recheck 2026-01-24.',
-  B4: 'Apply 29 mm (14.5 h drip, split across the next two nights) to bring Windberg Pinotage back onto its véraison glide path — the driest block on the farm.',
-  B5: 'Kloofstroom Chenin sits mid-band in véraison — no irrigation this cycle; recheck 2026-01-25.',
+  B4: 'Apply 29 mm (14.5 h drip, split across the next two nights) to bring Windberg Pinotage back onto its véraison glide path (the driest block on the farm).',
+  B5: 'Kloofstroom Chenin sits mid-band in véraison: no irrigation this cycle; recheck 2026-01-25.',
   B6: 'Môrelig Sauvignon is holding its harvest band. No irrigation needed; recheck 2026-01-24.',
-  B7: 'Leiwater Chardonnay is edging past its véraison band — a light 17 mm (7.6 h) tonight returns it to midpoint, but 12 mm of forecast rain may do the job for free.',
+  B7: 'Leiwater Chardonnay is edging past its véraison band: a light 17 mm (7.6 h) tonight returns it to midpoint, but 12 mm of forecast rain may do the job for free.',
 };
 
 /**
@@ -455,6 +469,16 @@ function statusOf(def: BlockDef): BlockStatus {
 export const mockStatus = (id: string): BlockStatus => statusOf(byId(id));
 
 // ---------- timeseries (glide path) ----------
+/**
+ * Generates a plausible 45-day history plus a 14-day forecast for a block's
+ * glide path. The history is built as a random-walk "sawtooth" (depletion
+ * rises with ET0/rain/irrigation daily, occasionally reset by a rain or
+ * irrigation event) seeded deterministically from the block id, then the
+ * whole series is nudged so its last point lands exactly on the block's
+ * current depletion fraction (`def.f`). The forecast continues the same
+ * regime-driven drift so dry blocks trend further off-band and wet blocks
+ * self-correct toward the band.
+ */
 export function mockTimeseries(id: string, days = 45): Timeseries {
   const def = byId(id);
   const [lo, hi] = def.band;
@@ -534,7 +558,7 @@ export function mockTimeseries(id: string, days = 45): Timeseries {
     };
   });
 
-  // Forecast: drift by regime — dry drifts further off, wet self-corrects toward lo.
+  // Forecast: drift by regime. Dry drifts further off, wet self-corrects toward lo.
   const forecast = [];
   let pf = def.f;
   for (let j = 1; j <= 14; j++) {
@@ -570,13 +594,13 @@ export function mockTimeseries(id: string, days = 45): Timeseries {
 
 // ---------- briefing ----------
 const HEADLINE: Record<string, string> = {
-  B1: 'Too wet — over-irrigated premium red; hold water before dilution.',
-  B2: 'Drifting dry — 0.05 past band; one 10 h set brings it back.',
+  B1: 'Too wet: over-irrigated premium red; hold water before dilution.',
+  B2: 'Drifting dry: 0.05 past band; one 10 h set brings it back.',
   B3: 'On track in véraison.',
-  B4: 'Driest on the farm — 29 mm behind its band; water over the next two nights.',
+  B4: 'Driest on the farm: 29 mm behind its band; water over the next two nights.',
   B5: 'Mid-band in véraison; holding its glide path.',
   B6: 'On track through harvest.',
-  B7: 'Edging dry — but 12 mm of forecast rain closes the deficit for free.',
+  B7: 'Edging dry, but 12 mm of forecast rain closes the deficit for free.',
 };
 
 export function mockBriefing(): Briefing {
@@ -618,7 +642,7 @@ const STYLE_W: Record<WineStyle, number> = {
   fresh_white: 1.0,
 };
 
-/** The block the seeded 12 mm rain cell covers — skipped, never scheduled. */
+/** The block the seeded 12 mm rain cell covers: skipped, never scheduled. */
 const RAIN_SKIP_ID = 'B7';
 
 export function mockBattlePlan(req: BattlePlanRequest): BattlePlan {
@@ -665,7 +689,7 @@ export function mockBattlePlan(req: BattlePlanRequest): BattlePlan {
   const skipped = [
     {
       block_id: 'B1',
-      reason: 'Currently too wet — irrigation would push it further off path.',
+      reason: 'Currently too wet: irrigation would push it further off path.',
     },
     {
       block_id: RAIN_SKIP_ID,
@@ -768,8 +792,8 @@ function scoreCanonical(
 }
 
 const SCENARIO_REC: Record<Status, string> = {
-  too_dry: 'Deficit widening — bring irrigation forward to defend the glide path.',
-  too_wet: 'Dilution risk rising — hold all water and let ETc recover the band.',
+  too_dry: 'Deficit widening: bring irrigation forward to defend the glide path.',
+  too_wet: 'Dilution risk rising: hold all water and let ETc recover the band.',
   on_track: 'Holds inside the target band under this scenario.',
 };
 
@@ -908,7 +932,7 @@ export function mockSetProvider(req: ProviderRequest): ProviderResponse {
     return {
       ok: false,
       error:
-        'No data pack found at backend/app/data/datapack/ — the provider activates automatically once the ET-GEO pack is loaded there.',
+        'No data pack found at backend/app/data/datapack/. The provider activates automatically once the ET-GEO pack is loaded there.',
     };
   }
   return { ok: false, error: `Unknown provider "${req.provider}".` };
@@ -991,6 +1015,12 @@ function seededReadings(id: string): ValidationReading[] {
   return list;
 }
 
+/**
+ * Summary agreement stats between logged pressure-bomb readings and the
+ * model's estimate for the same dates: mean bias, RMSE, and the percentage
+ * of readings that fall within the block's target band. Mirrors the
+ * validation summary the live backend computes in v2 §C.
+ */
 function agreementOf(id: string, readings: ValidationReading[]) {
   if (!readings.length) return { bias: 0, rmse: 0, n: 0, within_band_pct: 0 };
   const def = byId(id);
@@ -1107,7 +1137,7 @@ const PHOTO_SEEDS: Record<string, PhotoSeed[]> = {
     },
     {
       daysAgo: 2,
-      note: 'Vigorous lateral growth — hedging soon.',
+      note: 'Vigorous lateral growth, hedging soon.',
       analysis: {
         gli_mean: 0.25,
         canopy_cover_pct: 81,
@@ -1132,7 +1162,7 @@ const PHOTO_SEEDS: Record<string, PhotoSeed[]> = {
     },
     {
       daysAgo: 2,
-      note: 'Same vines — tips wilting by noon.',
+      note: 'Same vines, tips wilting by noon.',
       analysis: {
         gli_mean: 0.15,
         canopy_cover_pct: 57,
@@ -1190,7 +1220,7 @@ export function mockPhotos(id: string): BlockPhoto[] {
  * Deterministic insight generator mirroring the backend's template renderer:
  * every fact is read from the same canonical engine state the screens show
  * (statuses, slips, plans, events), assembled into grower-language prose.
- * source is always "template" here — mock mode has no AI leg by design.
+ * source is always "template" here. Mock mode has no AI leg by design.
  */
 
 const fmtMpaLoc = (v: number): string =>
@@ -1224,14 +1254,14 @@ const GLOSSARY: Glossary = [
     term: 'ETa',
     name: 'Actual evapotranspiration (ETa)',
     definition:
-      'The water the vines actually gave up, measured from satellite rather than modelled. When ETa sags below ETc the canopy is throttling — real stress, not a forecast.',
+      'The water the vines actually gave up, measured from satellite rather than modelled. When ETa sags below ETc the canopy is throttling: real stress, not a forecast.',
     unit: 'mm/day',
   },
   {
     term: 'Kc',
     name: 'Crop coefficient (Kc)',
     definition:
-      'How much of the reference thirst the vineyard actually draws, set by canopy size and stage — 0.30 at budbreak up to 0.70 at véraison. Multiply ET0 by Kc to get expected vine water use.',
+      'How much of the reference thirst the vineyard actually draws, set by canopy size and stage: 0.30 at budbreak up to 0.70 at véraison. Multiply ET0 by Kc to get expected vine water use.',
   },
   {
     term: 'Ks',
@@ -1243,32 +1273,32 @@ const GLOSSARY: Glossary = [
     term: 'NDVI',
     name: 'Normalised difference vegetation index (NDVI)',
     definition:
-      'A satellite greenness score from 0 to 1 — how much healthy leaf area the block carries. A vigorous canopy reads 0.75+; a declining NDVI corroborates water stress.',
+      'A satellite greenness score from 0 to 1: how much healthy leaf area the block carries. A vigorous canopy reads 0.75+; a declining NDVI corroborates water stress.',
   },
   {
     term: 'GDD',
     name: 'Growing degree days (GDD)',
     definition:
-      'Accumulated heat since 1 September: each day adds the mean temperature above 10 °C. GDD drives the phenology clock — budbreak, flowering, véraison and harvest each arrive at known GDD marks.',
+      'Accumulated heat since 1 September: each day adds the mean temperature above 10 °C. GDD drives the phenology clock: budbreak, flowering, véraison and harvest each arrive at known GDD marks.',
   },
   {
     term: 'MSWP',
     name: 'Midday stem water potential (MSWP)',
     definition:
-      'The pressure-bomb reading, in MPa (negative — more negative is drier). It is the grower’s ground truth for vine stress: bag a leaf, squeeze it in the chamber at midday, read the gauge. Vino maps its modelled depletion onto this scale.',
+      'The pressure-bomb reading, in MPa (negative: more negative is drier). It is the grower’s ground truth for vine stress: bag a leaf, squeeze it in the chamber at midday, read the gauge. Vino maps its modelled depletion onto this scale.',
     unit: 'MPa',
   },
   {
     term: 'RDI',
     name: 'Regulated deficit irrigation (RDI)',
     definition:
-      'Deliberately under-watering at the right stage — enough stress to concentrate flavour and control vigour, never enough to stall ripening. The glide path is RDI made visible.',
+      'Deliberately under-watering at the right stage: enough stress to concentrate flavour and control vigour, never enough to stall ripening. The glide path is RDI made visible.',
   },
   {
     term: 'TAW',
     name: 'Total available water (TAW)',
     definition:
-      'The water the root zone can hold between full and wilting — 120 mm for these soils. Depletion is expressed as a fraction of TAW so every block reads on the same scale.',
+      'The water the root zone can hold between full and wilting: 120 mm for these soils. Depletion is expressed as a fraction of TAW so every block reads on the same scale.',
     unit: 'mm',
   },
   {
@@ -1287,7 +1317,7 @@ const GLOSSARY: Glossary = [
     term: 'zonal statistics',
     name: 'Zonal statistics',
     definition:
-      'Satellite rasters averaged over the block’s exact traced polygon rather than a grid cell — so a value belongs to your rows, not to a square kilometre of mixed farmland.',
+      'Satellite rasters averaged over the block’s exact traced polygon rather than a grid cell, so a value belongs to your rows, not to a square kilometre of mixed farmland.',
   },
 ];
 
@@ -1339,14 +1369,14 @@ function termFact(term: string, def: BlockDef): InsightFact | null {
   }
 }
 
-/** Grower-language template per driver key — same wording family as the backend. */
+/** Grower-language template per driver key: same wording family as the backend. */
 const DRIVER_TEXT: Record<string, { what: string; effect: string }> = {
   et0_7d: {
-    what: 'the drying power of the weather over the last week — the millimetres a day the sun, heat, wind and dry air would pull from a well-watered canopy',
+    what: 'the drying power of the weather over the last week: the millimetres a day the sun, heat, wind and dry air would pull from a well-watered canopy',
     effect: 'Every millimetre of it must come out of the soil tank or the drip line, so a high week empties the root zone fast.',
   },
   rain_7d: {
-    what: 'effective rainfall banked over the last week (days under 2 mm don’t count — they evaporate off leaves and hot soil before they soak in)',
+    what: 'effective rainfall banked over the last week (days under 2 mm don’t count; they evaporate off leaves and hot soil before they soak in)',
     effect: 'Rain refills the root zone for free; a dry week leaves irrigation as the only inflow.',
   },
   tmax_7d: {
@@ -1358,7 +1388,7 @@ const DRIVER_TEXT: Record<string, { what: string; effect: string }> = {
     effect: 'Meaningful forecast rain lets the engine hold irrigation back rather than double-water.',
   },
   eta_7d: {
-    what: 'the water the vines actually gave up last week, measured by satellite — not modelled',
+    what: 'the water the vines actually gave up last week, measured by satellite rather than modelled',
     effect: 'When measured ETa sags below the modelled expectation, the canopy is already throttling.',
   },
   ndvi: {
@@ -1367,7 +1397,7 @@ const DRIVER_TEXT: Record<string, { what: string; effect: string }> = {
   },
   transpiration_deficit_pct: {
     what: 'how far actual transpiration (ETa) runs below the stage expectation (ETc)',
-    effect: 'Above ~15% the vines are visibly rationing water — the strongest single stress signal here.',
+    effect: 'Above ~15% the vines are visibly rationing water: the strongest single stress signal here.',
   },
 };
 
@@ -1394,8 +1424,16 @@ const ctxNum = (ctx: Record<string, unknown> | undefined, key: string): number |
 };
 
 const MODELLED_CAVEAT =
-  'Modelled estimate — log a pressure-bomb reading to calibrate.';
+  'Modelled estimate: log a pressure-bomb reading to calibrate.';
 
+/**
+ * Builds the headline/explanation/facts/caveats for one insight request by
+ * switching on `subject_type`. Every branch reads from the same canonical
+ * mock state (statuses, slips, plans, backtest events) that the rest of this
+ * file already computes, then narrates it in the same grower-facing voice
+ * the live backend's template renderer uses, so mock and live insights read
+ * as one product regardless of which is serving the app.
+ */
 function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'> {
   const blockId = req.block_id ?? ctxStr(req.context, 'block_id') ?? undefined;
   const def = blockId ? byId(blockId) : null;
@@ -1407,15 +1445,15 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
       const band = `${def.band[0].toFixed(2)}–${def.band[1].toFixed(2)}`;
       const headline =
         s.status === 'too_dry'
-          ? `${def.name} is too dry — ${s.deviation.toFixed(2)} past its ${stageWords(def.stage)} band`
+          ? `${def.name} is too dry: ${s.deviation.toFixed(2)} past its ${stageWords(def.stage)} band`
           : s.status === 'too_wet'
-            ? `${def.name} is too wet — ${Math.abs(s.deviation).toFixed(2)} below its ${stageWords(def.stage)} band`
+            ? `${def.name} is too wet: ${Math.abs(s.deviation).toFixed(2)} below its ${stageWords(def.stage)} band`
             : `${def.name} is riding its ${stageWords(def.stage)} glide path`;
       const statusSentence =
         s.status === 'too_dry'
           ? 'The vines have drawn past the deficit the wine style wants, so irrigation is due.'
           : s.status === 'too_wet'
-            ? 'The soil is wetter than the deliberate deficit calls for — more water now works against the wine.'
+            ? 'The soil is wetter than the deliberate deficit calls for: more water now works against the wine.'
             : 'No correction is needed; the deficit is doing its work on the fruit.';
       return {
         headline,
@@ -1440,8 +1478,8 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
         headline: `Why ${def.id} scores ${s.score}`,
         explanation:
           `The score blends how far the block sits off its band today (70% weight) with where the 7-day projection puts it (30%). ` +
-          `A drift of 0.35 past the band reads 100 — that is the full scale. ` +
-          `Today's deviation is ${s.deviation === 0 ? 'zero — inside the band' : s.deviation.toFixed(2)}, which lands the block at ${s.score} and a "${s.traffic}" flag. Higher scores simply mean "look here first".`,
+          `A drift of 0.35 past the band reads 100: that is the full scale. ` +
+          `Today's deviation is ${s.deviation === 0 ? 'zero (inside the band)' : s.deviation.toFixed(2)}, which lands the block at ${s.score} and a "${s.traffic}" flag. Higher scores simply mean "look here first".`,
         facts: [
           { label: 'Score', value: `${s.score} / 100` },
           { label: 'Traffic', value: s.traffic },
@@ -1462,7 +1500,7 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
         headline: `${d.label}: ${d.value}${d.unit ? ` ${d.unit}` : ''}`,
         explanation:
           `This driver is ${t ? t.what : 'one of the signals the engine weighs for this block'}. ` +
-          `${t ? t.effect : ''} Right now it reads ${d.value}${d.unit ? ` ${d.unit}` : ''} — ${PRESSURE_WORDS[d.pressure]}.`,
+          `${t ? t.effect : ''} Right now it reads ${d.value}${d.unit ? ` ${d.unit}` : ''}, ${PRESSURE_WORDS[d.pressure]}.`,
         facts: [
           { label: d.label, value: `${d.value}${d.unit ? ` ${d.unit}` : ''}` },
           { label: 'Pressure', value: d.pressure },
@@ -1483,7 +1521,7 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
       return {
         headline: `≈ ${fmtMpaLoc(est)} modelled stem water potential`,
         explanation:
-          `This translates the block's soil-water depletion into the unit a pressure bomb reads — midday stem water potential, where more negative means drier vines. ` +
+          `This translates the block's soil-water depletion into the unit a pressure bomb reads: midday stem water potential, where more negative means drier vines. ` +
           `Depletion of ${def.f.toFixed(2)} maps to about ${fmtMpaLoc(est)}; the ${stageWords(def.stage)} target for this wine style is ${fmtMpaLoc(Math.max(band[0], band[1]))} to ${fmtMpaLoc(Math.min(band[0], band[1]))}. It exists so the model and your gauge speak the same language.`,
         facts: [
           { label: 'Modelled MSWP', value: fmtMpaLoc(est) },
@@ -1518,12 +1556,12 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
       const slip = s.pour_slip;
       if (slip.type === 'hold') {
         return {
-          headline: `Hold water on ${def.name} — ${slip.hold_days} day${slip.hold_days === 1 ? '' : 's'}`,
+          headline: `Hold water on ${def.name}: ${slip.hold_days} day${slip.hold_days === 1 ? '' : 's'}`,
           explanation:
-            `The block sits wetter than the bottom of its ${stageWords(def.stage)} band, so any irrigation now pushes it further off path — diluting flavour and feeding canopy instead of fruit. ` +
+            `The block sits wetter than the bottom of its ${stageWords(def.stage)} band, so any irrigation now pushes it further off path, diluting flavour and feeding canopy instead of fruit. ` +
             `With no water added, daily vine use dries the profile back into band in about ${slip.hold_days} day${slip.hold_days === 1 ? '' : 's'}; recheck on ${slip.next_check}.`,
           facts: [
-            { label: 'Instruction', value: 'hold — no irrigation' },
+            { label: 'Instruction', value: 'hold: no irrigation' },
             { label: 'Est. days to band', value: `${slip.hold_days}` },
             { label: 'Next check', value: slip.next_check },
           ],
@@ -1531,9 +1569,9 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
         };
       }
       return {
-        headline: `Pour ${slip.needed_mm.toFixed(1)} mm — ${slip.runtime_hours.toFixed(1)} h of drip`,
+        headline: `Pour ${slip.needed_mm.toFixed(1)} mm: ${slip.runtime_hours.toFixed(1)} h of drip`,
         explanation:
-          `The slip aims the block back at the middle of its band, not at a full profile — the vines keep the working thirst the wine wants. ` +
+          `The slip aims the block back at the middle of its band, not at a full profile: the vines keep the working thirst the wine wants. ` +
           `The gap between today's depletion and the band midpoint is ${slip.needed_mm.toFixed(1)} mm. ` +
           `The drip line puts down ${def.rate} mm/h, which makes ${slip.runtime_hours.toFixed(1)} hours of pumping, scheduled "${slip.window}" ${slip.runtime_hours > 8 ? 'because the run does not fit a single night set' : 'so it lands with low evaporation'}.`,
         facts: [
@@ -1566,7 +1604,7 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
           { label: 'Stage sensitivity', value: `×${sens} (${stageWords(def.stage)})` },
           { label: 'Style weight', value: `×${w.toFixed(2)} (${STYLE_WORDS[def.wine_style]})` },
         ],
-        caveats: ['Re-solve the plan after any unforecast rain — priorities shift.'],
+        caveats: ['Re-solve the plan after any unforecast rain; priorities shift.'],
       };
     }
 
@@ -1576,15 +1614,15 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
       const wet = def.status === 'too_wet';
       const rain = def.id === RAIN_SKIP_ID;
       const explanation = wet
-        ? `${def.name} is already wetter than its band — watering it would push it further off path and dilute the wine, so its share of the budget goes to blocks that need it.`
+        ? `${def.name} is already wetter than its band: watering it would push it further off path and dilute the wine, so its share of the budget goes to blocks that need it.`
         : rain
-          ? `The forecast puts 12 mm of rain on ${def.name} within 48 hours — enough to close its deficit without running the pump. Skipping it leaves that water in the dam.`
+          ? `The forecast puts 12 mm of rain on ${def.name} within 48 hours, enough to close its deficit without running the pump. Skipping it leaves that water in the dam.`
           : `${def.name} is inside its target band, so it earns no water this cycle; the budget concentrates on blocks that are off path.`;
       return {
         headline: `Why ${def.name} is skipped${day ? ` on ${day}` : ''}`,
         explanation,
         facts: [
-          { label: 'Reason', value: wet ? 'too wet — hold' : rain ? 'rain covers the deficit' : 'already in band' },
+          { label: 'Reason', value: wet ? 'too wet: hold' : rain ? 'rain covers the deficit' : 'already in band' },
           { label: 'Status', value: def.status.replace('_', ' ') },
           { label: 'Depletion vs band', value: `${def.f.toFixed(2)} vs ${def.band[0].toFixed(2)}–${def.band[1].toFixed(2)}` },
         ],
@@ -1606,7 +1644,7 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
           `The bank weighs the remaining ${remaining.toLocaleString('en-ZA')} m³ in the dam against every block's projected glide-path demand to season end (${bank.projected_demand_m3.toLocaleString('en-ZA')} m³). ` +
           (short
             ? `At the current burn rate the water runs out ${bank.days_short} day${bank.days_short === 1 ? '' : 's'} short of harvest. Tightening the white blocks to the lower edge of their bands is the cheapest way to close the gap.`
-            : `Projected demand fits inside the bank with margin, so no ration is needed — keep pouring to the glide paths.`),
+            : `Projected demand fits inside the bank with margin, so no ration is needed. Keep pouring to the glide paths.`),
         facts: [
           { label: 'Remaining', value: `${remaining.toLocaleString('en-ZA')} m³` },
           { label: 'Projected demand', value: `${bank.projected_demand_m3.toLocaleString('en-ZA')} m³` },
@@ -1614,7 +1652,7 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
           ...(bank.run_dry_date ? [{ label: 'Run-dry date', value: bank.run_dry_date }] : []),
           ...(bank.days_short > 0 ? [{ label: 'Days short', value: `${bank.days_short}` }] : []),
         ],
-        caveats: ['Demand projection uses forecast weather and stage Kc — it moves as the season does.'],
+        caveats: ['Demand projection uses forecast weather and stage Kc, so it moves as the season does.'],
       };
     }
 
@@ -1623,10 +1661,10 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
       const e = mockBacktest().events.find((x) => x.date === date);
       if (!e) throw new Error(`unknown backtest event ${date}`);
       return {
-        headline: `Caught ${e.lead_days} days early — ${e.type.replace('_', ' ')} on ${e.date}`,
+        headline: `Caught ${e.lead_days} days early: ${e.type.replace('_', ' ')} on ${e.date}`,
         explanation:
           `${e.narrative} ` +
-          `The replay is information-limited: on each simulated day the engine saw only the data available up to that day plus its own forward projection — no hindsight. "Caught early" means the projection breached the band before the event landed.`,
+          `The replay is information-limited: on each simulated day the engine saw only the data available up to that day plus its own forward projection. No hindsight. "Caught early" means the projection breached the band before the event landed.`,
         facts: [
           { label: 'Event', value: e.type.replace('_', ' ') },
           { label: 'Date', value: e.date },
@@ -1652,7 +1690,7 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
         headline: `${def.name} under a ${days}-day ${words.label}: ${delta > 0 ? '+' : ''}${delta}`,
         explanation:
           `The what-if applies ${words.forcing} to the forward window and re-runs the same water balance. ` +
-          `Depletion moves from ${def.f.toFixed(2)} to about ${f2.toFixed(2)}, ${delta > 0 ? 'pushing the block further off' : delta < 0 ? 'easing the block back toward' : 'leaving the block level with'} its band — the score ${delta > 0 ? 'rises' : delta < 0 ? 'falls' : 'holds'} from ${base.score} to ${sc.score}. Blocks that jump are the ones to pre-empt.`,
+          `Depletion moves from ${def.f.toFixed(2)} to about ${f2.toFixed(2)}, ${delta > 0 ? 'pushing the block further off' : delta < 0 ? 'easing the block back toward' : 'leaving the block level with'} its band; the score ${delta > 0 ? 'rises' : delta < 0 ? 'falls' : 'holds'} from ${base.score} to ${sc.score}. Blocks that jump are the ones to pre-empt.`,
         facts: [
           { label: 'Scenario', value: `${words.label}, ${days} days` },
           { label: 'Score', value: `${base.score} → ${sc.score} (${delta > 0 ? '+' : ''}${delta})` },
@@ -1679,8 +1717,8 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
           ? `The canopy photo backs the model's read of ${pdef.id}`
           : `The canopy photo disagrees with the model on ${pdef.id}`,
         explanation:
-          `The app scores the photo with plain colour math, not ML: it picks out the canopy pixels by their green hue, then GLI — (2G−R−B)/(2G+R+B) — measures how healthily green they are, alongside canopy cover and yellowing. ` +
-          `This capture reads GLI ${a.gli_mean.toFixed(2)} with ${a.canopy_cover_pct}% cover and ${a.yellowing_pct}% yellowing — ${a.stress_hint === 'none' ? 'no visible stress' : `${a.stress_hint} stress`}, which ${a.agrees_with_model ? 'matches' : 'does not match'} the model's "${pdef.status.replace('_', ' ')}" read.`,
+          `The app scores the photo with plain colour math, not ML: it picks out the canopy pixels by their green hue, then GLI, calculated as (2G−R−B)/(2G+R+B), measures how healthily green they are, alongside canopy cover and yellowing. ` +
+          `This capture reads GLI ${a.gli_mean.toFixed(2)} with ${a.canopy_cover_pct}% cover and ${a.yellowing_pct}% yellowing: ${a.stress_hint === 'none' ? 'no visible stress' : `${a.stress_hint} stress`}, which ${a.agrees_with_model ? 'matches' : 'does not match'} the model's "${pdef.status.replace('_', ' ')}" read.`,
         facts: [
           { label: 'GLI (greenness)', value: a.gli_mean.toFixed(2) },
           { label: 'Canopy cover', value: `${a.canopy_cover_pct}%` },
@@ -1688,7 +1726,7 @@ function insightOf(req: InsightRequest): Omit<Insight, 'source' | 'subject_type'
           { label: 'Stress hint', value: a.stress_hint },
           { label: 'Vs model', value: a.agrees_with_model ? 'agrees' : 'differs' },
         ],
-        caveats: ['A screening heuristic from phone-camera colour — light and angle matter; it flags, it does not diagnose.'],
+        caveats: ['A screening heuristic from phone-camera colour: light and angle matter; it flags, it does not diagnose.'],
       };
     }
 

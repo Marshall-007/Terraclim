@@ -18,6 +18,13 @@ import { Icon, type IconName } from '../components/layout/icons';
 import { fmtDayMonth, fmtFullDate, fmtLongDate } from '../lib/format';
 import { color } from '../theme/tokens';
 
+/**
+ * "Does it actually work?" screen: replays the recorded season day by day
+ * through the same engine, showing only the data it would have seen at the
+ * time, and highlights the heat/wet events it flagged ahead of landing.
+ * `BacktestPanel` is also embedded inside the Validate screen's own tab.
+ */
+
 const EVENT_ICON: Record<string, IconName> = {
   heat_spike: 'sun',
   wet_swing: 'droplet',
@@ -170,7 +177,7 @@ export function BacktestPanel() {
           <span>
             <span className="font-semibold text-ink">Information-limited replay.</span>{' '}
             Each simulated day uses only the data available up to that day plus the
-            forward projection the engine would have had — no hindsight. "Caught N
+            forward projection the engine would have had. No hindsight. "Caught N
             days early" means the projection breached the band before the event
             occurred.
           </span>
@@ -207,7 +214,7 @@ export function Backtest() {
       <PageHeader
         eyebrow="Does it actually work?"
         title="Backtest"
-        subtitle="Replay the season day by day through the same engine, seeing only what it would have seen at the time. Every heat spike was flagged before it hit — this is the proof, not a promise."
+        subtitle="Replay the season day by day through the same engine, seeing only what it would have seen at the time. Every heat spike was flagged before it hit. This is the proof, not a promise."
       />
       <BacktestPanel />
     </div>

@@ -1,3 +1,7 @@
+"""Application configuration: environment-variable defaults layered with runtime
+overrides from the Settings panel (see app.settings_store), resolved once and
+cached as a single frozen Settings instance via get_settings().
+"""
 from __future__ import annotations
 
 import os
@@ -9,6 +13,9 @@ from . import settings_store
 
 
 def _parse_date(raw: str, default: str) -> date:
+    """Parse an ISO date string, falling back to `default` on a malformed value
+    (e.g. a hand-edited .env or a corrupted settings-store file) instead of
+    crashing app startup."""
     try:
         return date.fromisoformat(raw.strip())
     except ValueError:
@@ -17,6 +24,9 @@ def _parse_date(raw: str, default: str) -> date:
 
 @dataclass(frozen=True)
 class Settings:
+    """Resolved runtime configuration, valid until the next reload_settings() call.
+    Frozen so a Settings instance can't be mutated in place; a config change always
+    produces a fresh instance via get_settings.cache_clear()."""
     demo_date: date
     terraclim_token: str
     ai_key: str
@@ -37,6 +47,9 @@ def get_settings() -> Settings:
     demo_raw = str(overrides.get("demo_date") or os.getenv("DEMO_DATE", demo_default))
     token = str(overrides.get("terraclim_token") or os.getenv("TERRACLIM_TOKEN", "")).strip()
     provider = str(overrides.get("provider") or os.getenv("VINO_PROVIDER", "")).strip()
+    # Normalize an explicit "auto"/"default" (e.g. picked in the Settings panel) to
+    # the internal empty-string sentinel meaning "let the factory choose"; both
+    # spellings must behave identically to providers/factory.py's preference order.
     if provider in {"auto", "default"}:
         provider = ""
     return Settings(

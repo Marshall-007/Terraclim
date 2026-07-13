@@ -1,3 +1,7 @@
+"""MSWP field-validation API: lets growers log real pressure-bomb readings and
+compares them against the engine's modelled MSWP-equivalent series, reporting
+bias/RMSE and how often the model's target band actually bracketed reality.
+"""
 from __future__ import annotations
 
 import math
@@ -24,6 +28,7 @@ router = APIRouter(prefix="/api/validation", tags=["validation"])
 
 
 def _find_block(block_id: str):
+    """Fetch a block by id or raise 404."""
     block = next((b for b in load_blocks() if b.id == block_id), None)
     if block is None:
         raise HTTPException(status_code=404, detail=f"block '{block_id}' not found")
@@ -37,6 +42,8 @@ def _model_mswp_on(block, on: date, provider) -> float | None:
 
 
 def _model_series(block, as_of: date, provider) -> list[dict]:
+    """Day-by-day modelled MSWP (and its target band) across the block's whole
+    balance history, keyed for lookup by date against logged field readings."""
     ev = evaluate_block(block, as_of, provider, stress_targets(), kc_curves())
     mmap = mswp_map()
     series = []
@@ -71,6 +78,8 @@ def log_reading(
     as_of: date = Depends(parse_as_of),
     provider=Depends(get_provider_dep),
 ):
+    """Log one field MSWP reading and immediately score it against the model's
+    same-day estimate. Persists to app/data/validation_readings.json."""
     block = _find_block(body.block_id)
     model_mpa = _model_mswp_on(block, body.date, provider)
     delta = round(body.mswp_mpa - model_mpa, 2) if model_mpa is not None else None
@@ -91,6 +100,9 @@ def validation_view(
     as_of: date = Depends(parse_as_of),
     provider=Depends(get_provider_dep),
 ):
+    """Compare all logged field readings for a block against the model's series on
+    the same dates: per-reading deltas plus aggregate bias, RMSE, and the percentage
+    of readings that fell inside the model's target MPa band."""
     block = _find_block(block_id)
     model_series = _model_series(block, as_of, provider)
     by_date = {row["date"]: row for row in model_series}
@@ -102,12 +114,17 @@ def validation_view(
     for r in readings:
         m = by_date.get(r["date"])
         if not m:
+            # Reading falls outside the block's current balance history (e.g. logged
+            # before the season start or on a future/unevaluated date); skip rather
+            # than compare against a nonexistent model value.
             continue
         diffs.append(r["mswp_mpa"] - m["mswp_mpa"])
         lo, hi = m["mswp_band_mpa"]
         if lo <= r["mswp_mpa"] <= hi:
             within += 1
 
+    # Aggregate stats are None (not 0 or NaN) when no reading matched, since a
+    # score of "0 bias" would misleadingly claim a perfect match rather than "no data".
     n = len(diffs)
     bias = round(sum(diffs) / n, 3) if n else None
     rmse = round(math.sqrt(sum(d * d for d in diffs) / n), 3) if n else None

@@ -18,6 +18,13 @@ import { Explainable } from '../insight/Explainable';
 import { fmtDayMonth, fmtFullDate, fmtLongDate, fmtM3 } from '../lib/format';
 import { color } from '../theme/tokens';
 
+/**
+ * Season Water Bank screen: projects the dam's remaining water against every
+ * block's glide-path demand through to harvest, and shows whether (and when)
+ * the farm runs dry at the current burn rate. `remaining` is a local slider
+ * value, not fetched state, so the projection updates live as it's dragged.
+ */
+
 const PRESETS = [8000, 12000, 16000, 20000];
 
 interface VerdictStyle {
@@ -161,7 +168,7 @@ export function SeasonBank() {
       <PageHeader
         eyebrow="Day-zero resilience"
         title="Season Water Bank"
-        subtitle="Amortise the water left in the dam across the rest of the season by phenological priority. See exactly when the tank runs dry — and what to change."
+        subtitle="Amortise the water left in the dam across the rest of the season by phenological priority. See exactly when the tank runs dry, and what to change."
       />
 
       <Section>

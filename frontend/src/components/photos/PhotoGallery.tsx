@@ -50,7 +50,7 @@ function AnalysisChips({ photo }: { photo: BlockPhoto }) {
 
 /**
  * Per-block photo gallery with the deterministic screening analysis
- * (GLI / canopy cover / yellowing — an honest phone-camera heuristic,
+ * (GLI / canopy cover / yellowing; an honest phone-camera heuristic,
  * not ML) rendered as chips under each capture.
  */
 export function PhotoGallery({ photos }: { photos: BlockPhoto[] }) {

@@ -1,3 +1,8 @@
+/**
+ * Hand-rolled geometry helpers for block boundaries: point-in-polygon
+ * containment, centroids, bounding boxes, and area calculations for the
+ * Field Mode "trace a block" flow. Deliberately dependency-free.
+ */
 import type { BlockFeature } from '../types/api';
 
 export type LngLat = [number, number];
@@ -5,7 +10,7 @@ export type LngLat = [number, number];
 /**
  * Ray-casting point-in-polygon test. `point` and the ring vertices are both
  * [lon, lat]. Handles a single ring (the block's outer boundary). Written by
- * hand rather than pulled from a geometry library — it is small and the only
+ * hand rather than pulled from a geometry library: it is small and the only
  * spatial op Field Mode needs.
  */
 export function pointInRing(point: LngLat, ring: number[][]): boolean {
@@ -110,7 +115,7 @@ export function closeRing(vertices: LngLat[]): number[][] | null {
  */
 export function ringAreaM2(ring: number[][]): number {
   if (ring.length < 4) return 0; // closed ring needs 3 vertices + repeat
-  // Mean over the open ring — the duplicated closing vertex would otherwise
+  // Mean over the open ring: the duplicated closing vertex would otherwise
   // bias the projection point differently depending on winding direction.
   const open = ring.slice(0, -1);
   const lonMean = open.reduce((s, [lon]) => s + lon, 0) / open.length;

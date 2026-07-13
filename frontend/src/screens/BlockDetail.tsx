@@ -26,6 +26,14 @@ import {
 } from '../lib/format';
 import { color } from '../theme/tokens';
 
+/**
+ * The block detail slide-in panel (opened from the Dashboard map/ranked
+ * list): status, glide path, ET signals, drivers, pour slip, terrain, field
+ * photos, and (for traced blocks) delete management, all for one block.
+ * `BlockDetailPanel` is the exported entry point; everything else in this
+ * file is a private section of its body.
+ */
+
 const PRESSURE_COLOR: Record<Driver['pressure'], string> = {
   high: color.high,
   moderate: color.watch,
@@ -111,7 +119,7 @@ function TerrainCard({ block }: { block: BlockProperties }) {
         )}
       </div>
       <p className="mt-1.5 text-xs leading-relaxed text-ink-muted">
-        TerraClim terrain-adjusted values for this exact polygon — zonal statistics
+        TerraClim terrain-adjusted values for this exact polygon: zonal statistics
         over the traced boundary, not a grid-cell average.
       </p>
       <dl className="mt-3 space-y-0.5">
@@ -134,14 +142,14 @@ function TerrainCard({ block }: { block: BlockProperties }) {
               )}
             </dt>
             <dd className="nums text-sm font-medium text-ink">
-              {r.value ?? <span className="text-ink-muted">—</span>}
+              {r.value ?? <span className="text-ink-muted">N/A</span>}
             </dd>
           </div>
         ))}
       </dl>
       {!t && (
         <p className="mt-2 border-t border-line pt-2 text-[11px] leading-relaxed text-ink-muted">
-          Values populate from the TerraClim / ET-GEO data pack — no placeholder
+          Values populate from the TerraClim / ET-GEO data pack. No placeholder
           numbers are shown here.
         </p>
       )}
@@ -198,7 +206,7 @@ function DeleteBlock({
         <div>
           <div className="text-sm font-medium text-ink">Traced block</div>
           <p className="mt-0.5 text-xs text-ink-muted">
-            Drawn in-app — deleting removes it and its scores.
+            Drawn in-app: deleting removes it and its scores.
           </p>
         </div>
         {confirming ? (
@@ -288,7 +296,7 @@ function PanelBody({
           showScale
           height={14}
         />
-        {/* the grower's unit — MSWP (R3) */}
+        {/* the grower's unit: MSWP (R3) */}
         {s.mswp_estimate_mpa != null && s.mswp_band_mpa && (
           <div className="mt-3 rounded-md border border-line bg-raised px-3 py-2.5">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -367,10 +375,10 @@ function PanelBody({
         )}
       </div>
 
-      {/* ET panel — the brief-core per-day signals (v2 §A) */}
+      {/* ET panel: the brief-core per-day signals (v2 §A) */}
       {history.length > 0 && (
         <div>
-          <div className="mb-1 eyebrow">Water use — ETo vs ETa</div>
+          <div className="mb-1 eyebrow">Water use: ETo vs ETa</div>
           <p className="mb-3 text-xs text-ink-muted">
             mm/day, last 28 days. Kc and NDVI ride along in the tooltip.
           </p>

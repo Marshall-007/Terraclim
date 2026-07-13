@@ -23,7 +23,7 @@ export const fmtMpa = (mpa: number): string =>
   `${mpa < 0 ? '−' : ''}${Math.abs(mpa).toFixed(2)} MPa`;
 
 /**
- * −1.00 to −1.20 MPa — always reads from the wetter (less negative) target to
+ * −1.00 to −1.20 MPa: always reads from the wetter (less negative) target to
  * the drier one, regardless of the API's array ordering.
  */
 export const fmtMpaBand = (band: [number, number]): string => {

@@ -1,3 +1,8 @@
+/**
+ * Presentation helpers that translate raw API enums (stage, status, wine
+ * style, traffic light) into the labels and colors shown in the UI, so
+ * screens never hardcode display strings for these values.
+ */
 import { color, traffic, statusColor } from '../theme/tokens';
 import type { Stage, Status, Traffic, WineStyle } from '../types/api';
 
@@ -49,7 +54,7 @@ export const providerLabel = (p: string): string =>
 /**
  * The map fill for a block. Traffic light drives the base color; a too-wet
  * block additionally reads cool (blue tint) so over-watering is legible at a
- * glance — the product's key differentiator.
+ * glance (the product's key differentiator).
  */
 export function blockFill(t: Traffic, status: Status): { fill: string; stroke: string } {
   if (status === 'too_wet') {

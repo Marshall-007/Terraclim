@@ -3,6 +3,10 @@ import '@fontsource-variable/archivo';
 import 'leaflet/dist/leaflet.css';
 import './index.css';
 
+/**
+ * App entry point: loads global fonts/styles, kicks off the one-time API
+ * health probe, and mounts <App /> into #root.
+ */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';

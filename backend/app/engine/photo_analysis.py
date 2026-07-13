@@ -1,14 +1,14 @@
+"""Deterministic canopy screening from a phone photo: a published-method
+heuristic, not ML. Computes the Green Leaf Index over HSV-segmented canopy
+pixels, plus canopy cover and yellowing percentages. Honest framing:
+corroborates the water-balance model, does not replace a pressure bomb.
+"""
 from __future__ import annotations
 
 import io
 
 import numpy as np
 from PIL import Image
-
-# Deterministic canopy screening from a phone photo — a published-method heuristic,
-# not ML. Green Leaf Index over HSV-segmented canopy pixels, plus canopy cover and
-# yellowing. Honest framing: corroborates the water-balance model, does not replace a
-# pressure bomb.
 
 MAX_DIM = 1600           # downscale ceiling for re-encode + analysis
 ANALYSIS_DIM = 512       # analysis works on a smaller copy for speed/determinism
@@ -21,6 +21,7 @@ VAL_MIN = 40
 
 
 class InvalidImage(ValueError):
+    """Raised when the uploaded bytes cannot be decoded as a real image."""
     pass
 
 
@@ -46,6 +47,10 @@ def process_upload(raw: bytes) -> tuple[bytes, dict]:
 
 
 def analyze(img: Image.Image) -> dict:
+    """Compute canopy cover, Green Leaf Index, and yellowing percentage for one
+    photo, and derive a coarse stress hint from them. Pixel classification runs
+    in HSV (hue/saturation/value) rather than raw RGB because hue separates
+    green-vs-yellow foliage far more cleanly than RGB thresholds would."""
     small = img.copy()
     small.thumbnail((ANALYSIS_DIM, ANALYSIS_DIM))
     rgb = np.asarray(small, dtype=np.float64)
@@ -54,6 +59,9 @@ def analyze(img: Image.Image) -> dict:
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
 
+    # "Lit" excludes near-black/near-grey pixels (shadow, sky, hardware) before
+    # hue is trusted to classify green vs. yellow, since hue is noisy at low
+    # saturation/value.
     lit = (s >= SAT_MIN) & (v >= VAL_MIN)
     canopy = lit & (h >= GREEN_HUE[0]) & (h <= GREEN_HUE[1])
     yellow = lit & (h >= YELLOW_HUE[0]) & (h < YELLOW_HUE[1])
@@ -65,6 +73,9 @@ def analyze(img: Image.Image) -> dict:
     canopy_cover_pct = round(canopy_n / total * 100.0, 1)
 
     if canopy_n > 0:
+        # Green Leaf Index: (2G - R - B) / (2G + R + B), a standard RGB-only
+        # vegetation greenness index. Computed only over canopy-classified
+        # pixels, so background/soil never dilutes the score.
         denom = 2 * g[canopy] + r[canopy] + b[canopy]
         gli = np.where(denom != 0, (2 * g[canopy] - r[canopy] - b[canopy]) / denom, 0.0)
         gli_mean = round(float(gli.mean()), 3)

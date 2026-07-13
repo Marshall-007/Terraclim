@@ -1,3 +1,11 @@
+"""Open-Meteo weather provider: the default, keyless, live data source.
+
+Implements the `ClimateProvider` protocol against Open-Meteo's free archive
+(historical) and forecast REST APIs for the Cape winelands. No API key or
+account is required, which is why it is the baseline provider ahead of the
+gated TerraClim and curated data-pack sources (see `factory.py`).
+"""
+
 from __future__ import annotations
 
 import logging
@@ -13,6 +21,8 @@ ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 TIMEZONE = "Africa/Johannesburg"
 
+# Daily variable names as Open-Meteo's API spells them; parsed back out by name
+# in _parse_daily, so order here doesn't matter.
 DAILY_VARS = [
     "et0_fao_evapotranspiration",
     "precipitation_sum",
@@ -27,6 +37,8 @@ _TIMEOUT = httpx.Timeout(12.0, connect=6.0)
 
 
 def _num(value, fallback=0.0):
+    # Open-Meteo emits JSON null for missing/sparse-station days; treat null the
+    # same as absent rather than letting it propagate into the water balance.
     return fallback if value is None else float(value)
 
 
@@ -47,6 +59,8 @@ def _parse_daily(payload: dict) -> list[DailyWeather]:
     out: list[DailyWeather] = []
     for i, t in enumerate(times):
         d = date.fromisoformat(t)
+        # 25 °C tmax / 8 °C diurnal range: rough Cape winelands defaults, used only
+        # when a station drops out entirely so downstream math never sees a gap.
         day_tmax = _num(tmax[i] if i < len(tmax) else None, 25.0)
         day_tmin = _num(tmin[i] if i < len(tmin) else None, day_tmax - 8.0)
         # ET0 can be null in the archive on sparse days; derive a temperature-based
@@ -71,6 +85,8 @@ def _parse_daily(payload: dict) -> list[DailyWeather]:
 
 
 class OpenMeteoProvider:
+    """Live `ClimateProvider` backed by Open-Meteo's archive and forecast APIs."""
+
     name = "open-meteo"
 
     def get_daily(self, lat: float, lon: float, start: date, end: date) -> list[DailyWeather]:
@@ -92,6 +108,8 @@ class OpenMeteoProvider:
             "longitude": lon,
             "daily": ",".join(DAILY_VARS),
             "timezone": TIMEZONE,
+            # 16 is Open-Meteo's forecast_days cap; +1 covers "today" in the
+            # response before the future-only slice below drops it.
             "forecast_days": min(16, max(1, days + 1)),
         }
         series = self._request(FORECAST_URL, params)
@@ -100,6 +118,8 @@ class OpenMeteoProvider:
         return future[:days]
 
     def _request(self, url: str, params: dict) -> list[DailyWeather]:
+        # Normalize every failure mode (network, HTTP status, bad JSON/shape) into
+        # ProviderError so callers have one exception type to handle.
         try:
             resp = httpx.get(url, params=params, timeout=_TIMEOUT)
             resp.raise_for_status()

@@ -1,7 +1,7 @@
 /**
  * The shared Insight surface (v2 §H): a right slide-in panel on desktop and a
  * bottom sheet on mobile. Headline in the display serif, facts as a tabular
- * label/value list, caveats as a muted note, and an honest source tag —
+ * label/value list, caveats as a muted note, and an honest source tag:
  * "Engine explanation" (template) or "AI-phrased" (ai), never anything else.
  */
 

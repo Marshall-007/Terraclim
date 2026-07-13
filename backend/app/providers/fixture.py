@@ -1,3 +1,11 @@
+"""Deterministic synthetic Cape winelands weather generator.
+
+Used for tests (no network) and as the resilience fallback when the live
+weather provider is unreachable. The model is a seasonal sinusoid (Southern
+Hemisphere: hot/dry January, cool/wet July) plus a reproducible per-day
+jitter, and one fixed heat spike so the backtest always has a real event to
+surface in the demo. Not real weather data.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -6,19 +14,13 @@ from datetime import date, timedelta
 
 from .base import DailyWeather
 
-# Deterministic synthetic Cape winelands weather. Used for tests (no network) and
-# as the resilience fallback when the live provider is unreachable. The model is a
-# seasonal sinusoid (Southern Hemisphere: hot/dry January, cool/wet July) plus a
-# reproducible per-day jitter, and one fixed heat spike so the backtest always has
-# a real event to surface in the demo.
-
 HEAT_SPIKE_DATE = date(2025, 12, 4)
 HEAT_SPIKE_HALF_WIDTH_DAYS = 2
 
 # Seeded demo rain event: an isolated summer convective cell over the Leiwater
 # corner of the farm (B7) two days after the default demo date (2026-01-20). It
-# gives the Battle Plan its skip-on-rain moment — 12 mm inside the scheduler's
-# >=8 mm-within-48-h window — while staying local enough (<0.55 km of B7's
+# gives the Battle Plan its skip-on-rain moment (12 mm, inside the scheduler's
+# >=8 mm-within-48-h window) while staying local enough (<0.55 km of B7's
 # centroid) that every other block's canonical status numbers are untouched.
 RAIN_EVENT_MM: dict[date, float] = {date(2026, 1, 22): 12.0}
 RAIN_EVENT_CENTER_LAT = -33.9462
@@ -58,6 +60,12 @@ def _heat_spike_bump(d: date) -> float:
 
 
 def synthetic_daily(lat: float, lon: float, d: date) -> DailyWeather:
+    """Generate one deterministic synthetic weather day for (lat, lon, d).
+
+    Every value derives from `d` and rounded (lat, lon) through `_unit_noise`,
+    so the same inputs always give the same outputs (no RNG seeding to manage)
+    while different sites/days still look independently varied.
+    """
     phase = _season_phase(d)
     site = _unit_noise(round(lat, 3), round(lon, 3))
     jitter = _unit_noise(d.isoformat(), round(lat, 3)) - 0.5
@@ -69,8 +77,8 @@ def synthetic_daily(lat: float, lon: float, d: date) -> DailyWeather:
     tmin = tmax - diurnal
     tmean = (tmax + tmin) / 2
 
-    # ET0 tracks temperature/season and surges during the heat spike (hot, dry air
-    # drives evapotranspiration up — the mechanism the backtest is meant to catch).
+    # ET0 tracks temperature/season and surges during the heat spike: hot, dry air
+    # drives evapotranspiration up, which is the mechanism the backtest is meant to catch.
     et0 = 3.4 + 2.9 * phase + 0.6 * jitter + 0.35 * spike
     et0 = max(0.4, et0)
 
@@ -98,8 +106,9 @@ def synthetic_daily(lat: float, lon: float, d: date) -> DailyWeather:
     # Measured actual ET (retrospective satellite/RF product). A drip/RDI vineyard
     # transpires below its unstressed potential (ET0 x Kc): ETa tracks canopy vigour
     # as a fraction of ET0, so it rises with the heat spike (more demand, water
-    # permitting) yet stays below the model's potential ETc — the transpiration
-    # deficit the engine surfaces. Soil-water throttling is the balance's Ks job.
+    # permitting) yet stays below the model's potential ETc: that gap is the
+    # transpiration deficit the engine surfaces. Soil-water throttling is the
+    # balance's Ks job.
     canopy_frac = 0.26 + 0.44 * ndvi
     eta = max(0.2, et0 * canopy_frac)
 
@@ -118,6 +127,10 @@ def synthetic_daily(lat: float, lon: float, d: date) -> DailyWeather:
 
 
 class FixtureProvider:
+    """ClimateProvider backed entirely by `synthetic_daily`: no network calls,
+    always available, and the demo's ground truth for the seeded heat spike
+    and rain event."""
+
     name = "fixture"
 
     def get_daily(self, lat: float, lon: float, start: date, end: date) -> list[DailyWeather]:
@@ -129,5 +142,7 @@ class FixtureProvider:
         return out
 
     def get_forecast(self, lat: float, lon: float, days: int) -> list[DailyWeather]:
+        # "Forecast" here just means synthetic days after today; there is no
+        # real forward uncertainty to model since the generator is deterministic.
         today = date.today()
         return [synthetic_daily(lat, lon, today + timedelta(days=i)) for i in range(1, days + 1)]

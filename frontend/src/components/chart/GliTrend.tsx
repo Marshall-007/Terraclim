@@ -25,7 +25,7 @@ function GliTooltip({ active, payload }: any) {
 }
 
 /**
- * Photo Green Leaf Index over time — the corroborating field-photo series.
+ * Photo Green Leaf Index over time: the corroborating field-photo series.
  * A single series on its own axis (GLI is unitless 0–1, a different scale
  * from MPa, so it never shares the validation chart's axis).
  */

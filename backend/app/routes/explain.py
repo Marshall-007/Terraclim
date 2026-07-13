@@ -1,3 +1,9 @@
+"""Legacy per-block narrative explanation endpoint.
+
+Superseded by the general POST /api/insight surface but kept for existing
+callers; delegates to the same insight engine and optional AI rephrasing so the
+two surfaces can never drift apart in wording.
+"""
 from __future__ import annotations
 
 from datetime import date

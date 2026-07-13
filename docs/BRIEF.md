@@ -1,4 +1,4 @@
-# ET-GEO Hackathon 2026 — Official Brief (from terraclim.com)
+# ET-GEO Hackathon 2026: Official Brief (from terraclim.com)
 
 Captured from the hackathon page, 10 July 2026. The detailed data-pack/starter-kit brief arrives at kick-off; this is the binding public brief.
 
@@ -8,8 +8,8 @@ Captured from the hackathon page, 10 July 2026. The detailed data-pack/starter-k
 |---|---|
 | Format | Online sprint, from anywhere |
 | Dates | Thu 16 – Sun 19 July 2026 |
-| Demo day | Sun 19 July — **5-minute live demo + 3-minute Q&A**, judging, winner announced |
-| Submission | Mon 20 July, **09:00** — final prototype package for review and handover |
+| Demo day | Sun 19 July: **5-minute live demo + 3-minute Q&A**, judging, winner announced |
+| Submission | Mon 20 July, **09:00**: final prototype package for review and handover |
 | Apply by | **10 July 2026** (entries confirmed 14 July) |
 | Teams | Individuals or teams, max 4 |
 | Prize | R30,000 pool + optional 3-month TerraClim internship for winners |
@@ -22,10 +22,10 @@ Captured from the hackathon page, 10 July 2026. The detailed data-pack/starter-k
 
 ## What must be built (the judged feature set)
 
-1. **Field/day dashboard** — ETo, ETa, Kc, NDVI and daily vineyard water-use signals at block level, per day.
-2. **Recommendation engine** — convert soil-water status into clear grower actions: **irrigate / hold / review**, including **how much**.
-3. **Stress alerts** — rank blocks by **depletion**; surface vineyards moving toward stress.
-4. **Validation view** — make WaPOR, FruitLook etc. and **stem water potential (pressure-bomb) checks** visible enough to build trust.
+1. **Field/day dashboard**: ETo, ETa, Kc, NDVI and daily vineyard water-use signals at block level, per day.
+2. **Recommendation engine**: convert soil-water status into clear grower actions: **irrigate / hold / review**, including **how much**.
+3. **Stress alerts**: rank blocks by **depletion**; surface vineyards moving toward stress.
+4. **Validation view**: make WaPOR, FruitLook etc. and **stem water potential (pressure-bomb) checks** visible enough to build trust.
 
 ## What entrants receive (the data pack)
 
@@ -39,12 +39,12 @@ Captured from the hackathon page, 10 July 2026. The detailed data-pack/starter-k
 
 ## Judging
 
-Judged on **practical usefulness and scientific credibility**: usefulness, validation, interface clarity, working prototype quality, and "a path toward a real TerraClim product" — a **handover-ready prototype TerraClim can carry forward**. Everyone builds from the same data baseline, so the tool layer is the differentiator.
+Judged on **practical usefulness and scientific credibility**: usefulness, validation, interface clarity, working prototype quality, and "a path toward a real TerraClim product": a **handover-ready prototype TerraClim can carry forward**. Everyone builds from the same data baseline, so the tool layer is the differentiator.
 
 Sprint leads / judges:
-- **Dr Tara Southey** — Founder & CEO (industry challenge framing: decisions growers and viticulturists can trust)
-- **Prof. Adriaan van Niekerk** — Co-founder & Research Lead (scientific rigour of ET-GEO models and validation)
-- **Mbulelo Ntlangu** — Technical Lead (working interface, clear data flow, handover-ready prototype)
+- **Dr Tara Southey**, Founder & CEO (industry challenge framing: decisions growers and viticulturists can trust)
+- **Prof. Adriaan van Niekerk**, Co-founder & Research Lead (scientific rigour of ET-GEO models and validation)
+- **Mbulelo Ntlangu**, Technical Lead (working interface, clear data flow, handover-ready prototype)
 
 ## Run of show
 

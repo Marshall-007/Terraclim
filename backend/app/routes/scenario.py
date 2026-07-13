@@ -1,3 +1,8 @@
+"""What-if scenario API: perturbs the forward weather forecast (heatwave, drought,
+rain event, or cool spell) and re-scores every block against the perturbed
+forecast, so growers can see which blocks are most exposed before an event
+actually arrives (see app/engine/scenario.py for the perturbation math).
+"""
 from __future__ import annotations
 
 from datetime import date
@@ -25,6 +30,9 @@ def scenario(
     as_of: date = Depends(parse_as_of),
     provider=Depends(get_provider_dep),
 ):
+    """Re-evaluate every block under a perturbed forecast and report each one's
+    score delta against its real-forecast baseline, so the highest-delta blocks
+    surface as the most exposed to the scenario."""
     targets = stress_targets()
     kc = kc_curves()
     results = []

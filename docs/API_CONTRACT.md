@@ -3,7 +3,7 @@
 This is the binding interface between backend and frontend. Both sides build against this document. Any change must be reflected here first.
 
 Backend base URL: `http://localhost:8000` in dev; frontend reads `VITE_API_BASE`.
-All responses are JSON. All dates are ISO `YYYY-MM-DD`. All endpoints accept an optional `as_of=YYYY-MM-DD` query param (defaults to env `DEMO_DATE`, then to today) — the engine evaluates the farm as of that date.
+All responses are JSON. All dates are ISO `YYYY-MM-DD`. All endpoints accept an optional `as_of=YYYY-MM-DD` query param (defaults to env `DEMO_DATE`, then to today). The engine evaluates the farm as of that date.
 
 ---
 
@@ -35,7 +35,7 @@ dormant 0.15 · budbreak 0.30 · flowering 0.45 · fruit_set 0.60 · veraison 0.
 - Depletion: `D_t = clamp(D_{t-1} + ETc_t − rain_t − irrigation_t, 0, TAW)`; depletion fraction `f = D/TAW`.
 - Balance is computed from 1 September of the current season to `as_of`, seeded `D=0.3×TAW`.
 
-### Stress Glide Path — target depletion-fraction bands [lo, hi] per stage × style
+### Stress Glide Path: target depletion-fraction bands [lo, hi] per stage × style
 
 | stage | premium_red | red | white | fresh_white |
 |---|---|---|---|---|
@@ -47,7 +47,7 @@ dormant 0.15 · budbreak 0.30 · flowering 0.45 · fruit_set 0.60 · veraison 0.
 | harvest | 0.35–0.55 | 0.35–0.55 | 0.30–0.50 | 0.25–0.40 |
 | post_harvest | 0.20–0.40 | 0.20–0.40 | 0.20–0.40 | 0.20–0.40 |
 
-(Defaults from FAO-56 + RDI literature; `docs/research/` may refine values — engine reads them from `backend/app/data/stress_targets.json`, never hardcodes.)
+(Defaults from FAO-56 + RDI literature; `docs/research/` may refine values. Engine reads them from `backend/app/data/stress_targets.json`, never hardcodes.)
 
 ### Deviation & status
 - `deviation = f − hi` if `f > hi` (positive, **too_dry**); `deviation = f − lo` if `f < lo` (negative, **too_wet**); else `0` (**on_track**).
@@ -55,7 +55,7 @@ dormant 0.15 · budbreak 0.30 · flowering 0.45 · fruit_set 0.60 · veraison 0.
 - Traffic light: 0–25 `stable`, 26–50 `watch`, 51–75 `high`, 76–100 `critical`. Status string is independent: `on_track` / `too_dry` / `too_wet`.
 
 ### Pour Slip math
-- `needed_mm = max(0, D − mid×TAW)` where `mid = (lo+hi)/2` — bring depletion back to band midpoint.
+- `needed_mm = max(0, D − mid×TAW)` where `mid = (lo+hi)/2` (bringing depletion back to band midpoint).
 - `runtime_hours = needed_mm / application_rate_mm_h` (block property), rounded to 0.1 h.
 - `window`: `"tonight"` when `runtime_hours ≤ 8` (a drip set fits one night); `"next two nights"` for longer runs.
 - If status is `too_wet`: slip type `hold` with `hold_days` estimate (days for ETc to bring `f` back above `lo`, using forecast).
@@ -81,7 +81,7 @@ GeoJSON FeatureCollection. Feature properties:
 
 ### `GET /api/blocks/{id}/status`
 
-Worked example: **B4 Windberg Pinotage** (variety factor 1.00, so veraison begins at GDD 1150 unscaled). Demo-canonical block states: **B4 = top too-dry**, **B1 Bosberg Cabernet = too-wet** (seeded ~28 mm over-irrigation per R6 — the "stop watering your Cabernet" climax), enforced identically in the live seed and the frontend mocks. The JSON below is the engine's actual output on the deterministic demo seed (`as_of=2026-01-20`) — not a hand-worked illustration.
+Worked example: **B4 Windberg Pinotage** (variety factor 1.00, so veraison begins at GDD 1150 unscaled). Demo-canonical block states: **B4 = top too-dry**, **B1 Bosberg Cabernet = too-wet** (seeded ~28 mm over-irrigation per R6, the "stop watering your Cabernet" climax), enforced identically in the live seed and the frontend mocks. The JSON below is the engine's actual output on the deterministic demo seed (`as_of=2026-01-20`), not a hand-worked illustration.
 
 ```json
 {
@@ -104,7 +104,7 @@ Worked example: **B4 Windberg Pinotage** (variety factor 1.00, so veraison begin
   }
 }
 ```
-For a too-wet block — **B1 Bosberg Cabernet** on the same demo seed: `"status": "too_wet"`, `"depletion_fraction": 0.108`, `"deviation": -0.242`, `"score": 48`, `"mswp_estimate_mpa": -0.65`, `pour_slip.type = "hold"`, `needed_mm = 0`, `hold_days = 7`, recommendation explains that watering now risks dilution and excess vigor.
+For a too-wet block (**B1 Bosberg Cabernet**) on the same demo seed: `"status": "too_wet"`, `"depletion_fraction": 0.108`, `"deviation": -0.242`, `"score": 48`, `"mswp_estimate_mpa": -0.65`, `pour_slip.type = "hold"`, `needed_mm = 0`, `hold_days = 7`, recommendation explains that watering now risks dilution and excess vigor.
 
 ### `GET /api/blocks/{id}/timeseries?days=45`
 ```json
@@ -145,7 +145,7 @@ Response (the engine's actual output on the deterministic demo seed, `as_of=2026
     ]}
   ],
   "skipped": [
-    { "block_id": "B1", "reason": "Currently too wet — irrigation would push it further off path." },
+    { "block_id": "B1", "reason": "Currently too wet: irrigation would push it further off path." },
     { "block_id": "B7", "reason": "12 mm rain forecast within 48 h closes the deficit without irrigation." }
   ],
   "summary": "18 available hours allocated to 2 of 7 blocks; 2 blocks skipped on forecast; est. 243 m³ water saved."
@@ -186,13 +186,13 @@ Replays the engine day-by-day over the trailing window, **information-limited**:
 ```
 
 ### `GET /api/briefing`
-Farm-wide morning brief: array of per-block `{block_id, name, traffic, status, score, headline}` sorted by score desc, plus `farm_summary` string. On the deterministic demo seed the ranked order is **B4 too_dry 55 · B1 too_wet 48 · B2 too_dry 21 · B7 too_dry 12 · B3 on_track 11 · B6 on_track 11 · B5 on_track 8**, with `farm_summary` = "3 block(s) need water, 1 too wet, 3 on track. Peak pressure: B4 (55)." (B7's 12 reflects the seeded 12 mm rain cell two days out softening its 7-day projection — the same rain the Battle Plan skips it for.)
+Farm-wide morning brief: array of per-block `{block_id, name, traffic, status, score, headline}` sorted by score desc, plus `farm_summary` string. On the deterministic demo seed the ranked order is **B4 too_dry 55 · B1 too_wet 48 · B2 too_dry 21 · B7 too_dry 12 · B3 on_track 11 · B6 on_track 11 · B5 on_track 8**, with `farm_summary` = "3 block(s) need water, 1 too wet, 3 on track. Peak pressure: B4 (55)." (B7's 12 reflects the seeded 12 mm rain cell two days out softening its 7-day projection, the same rain the Battle Plan skips it for.)
 
 ### `POST /api/irrigation`
 Log an irrigation event so the balance reflects it: `{ "block_id": "B1", "date": "2026-01-20", "mm": 9.0 }` → `{ "ok": true }`. Persisted to `backend/app/data/irrigation_log.json`.
 
 ### `GET /api/explain/{id}` *(optional, stretch)*
-Plain-English narrative for a block. If no `AI_KEY` set, return the deterministic template sentence — never fail.
+Plain-English narrative for a block. If no `AI_KEY` set, return the deterministic template sentence and never fail.
 
 ---
 
@@ -221,7 +221,7 @@ class DailyWeather:
 
 ## Demo farm (binding fixture)
 
-`backend/app/data/blocks.geojson` — 7 polygon blocks around lon 18.855–18.885, lat −33.925 to −33.950 (Stellenbosch), each 1.5–4 ha, realistic rectangular-ish vineyard shapes, properties per the `/api/blocks` schema:
+`backend/app/data/blocks.geojson`: 7 polygon blocks around lon 18.855–18.885, lat −33.925 to −33.950 (Stellenbosch), each 1.5–4 ha, realistic rectangular-ish vineyard shapes, properties per the `/api/blocks` schema:
 
 | id | name | variety | wine_style | area_ha | rate mm/h |
 |---|---|---|---|---|---|
@@ -233,17 +233,17 @@ class DailyWeather:
 | B6 | Môrelig Sauvignon | Sauvignon Blanc | fresh_white | 2.4 | 2.4 |
 | B7 | Leiwater Chardonnay | Chardonnay | white | 1.9 | 2.2 |
 
-## Contract v2 addendum (wave 2 — binding)
+## Contract v2 addendum (wave 2, binding)
 
 ### A. ETa + NDVI channels (R12)
 
 `DailyWeather` gains optional `eta: float | None` (measured actual ET, mm) and `ndvi: float | None`. When `eta` is present the balance consumes it directly; modelled `ETc×Ks` remains the forecast/gap-fill layer. `Ks` per FAO-56: `RAW = p × TAW`, `p = 0.45`; `Ks = (TAW − D)/(TAW − RAW)` when `D > RAW` else 1; `ETc_adj = ET0 × Kc × Ks`. Effective rainfall: days < 2 mm ignored; daily infiltration capped at 40 mm.
-- `/api/blocks/{id}/status` gains `"eta_7d"` and `"ndvi"` drivers when data exists, plus `"transpiration_deficit_pct"` (ETa vs ETc divergence) — absent, never null-crash, when no ETa source.
-- `/api/blocks/{id}/timeseries` rows gain optional `eta`, `ndvi`, and REQUIRED `kc` (the stage/NDVI-derived crop coefficient used that day — Kc is a named checklist item in the brief and must be displayable per block per day).
+- `/api/blocks/{id}/status` gains `"eta_7d"` and `"ndvi"` drivers when data exists, plus `"transpiration_deficit_pct"` (ETa vs ETc divergence). Absent, never null-crash, when no ETa source.
+- `/api/blocks/{id}/timeseries` rows gain optional `eta`, `ndvi`, and REQUIRED `kc` (the stage/NDVI-derived crop coefficient used that day, as Kc is a named checklist item in the brief and must be displayable per block per day).
 
 ### B. Stem water potential display (R3)
 
-`/status` gains `"mswp_estimate_mpa": float` and `"mswp_band_mpa": [lo, hi]` — modelled midday stem water potential equivalent, mapped from depletion fraction per stage (mapping table in `backend/app/data/mswp_map.json`, marked modelled). UI shows MPa alongside depletion fraction.
+`/status` gains `"mswp_estimate_mpa": float` and `"mswp_band_mpa": [lo, hi]`: modelled midday stem water potential equivalent, mapped from depletion fraction per stage (mapping table in `backend/app/data/mswp_map.json`, marked modelled). UI shows MPa alongside depletion fraction.
 
 ### C. Pressure-bomb + photo validation (R13 + R17)
 
@@ -255,7 +255,7 @@ class DailyWeather:
 
 ### D. Settings / Data Source panel (R11)
 
-- `GET /api/settings` → `{provider, terraclim_ready, token_status: "unset"|"set (••••1234)", cache: {entries, oldest_minutes}, as_of, datapack: {loaded: bool, path?, layers?}}` — token value never returned.
+- `GET /api/settings` → `{provider, terraclim_ready, token_status: "unset"|"set (••••1234)", cache: {entries, oldest_minutes}, as_of, datapack: {loaded: bool, path?, layers?}}`. Token value never returned.
 - `POST /api/settings/provider` `{provider, token?}` → validates with one live test call before accepting; persists to gitignored `backend/app/data/settings.json`; applies without restart; on failure returns `{ok: false, error}`.
 - `POST /api/settings/cache/refresh` → purge + re-warm all blocks; returns per-block ok/fail.
 - `POST /api/settings/demo-date` `{as_of}` → runtime override.
@@ -263,7 +263,7 @@ class DailyWeather:
 
 ### E. DataPackProvider (R14)
 
-Third provider reading `backend/app/data/datapack/` (gitignored): GeoTIFF rasters (ETo/ETa/NDVI, rasterio zonal stats over block polygons) and/or CSV per-block series; manifest `datapack.json` describes layers. Missing pack → provider reports not-loaded; factory order: datapack (if loaded) → terraclim (if ready) → open-meteo → synthetic fallback. rasterio is an optional dependency — import lazily; CSV path must work without it.
+Third provider reading `backend/app/data/datapack/` (gitignored): GeoTIFF rasters (ETo/ETa/NDVI, rasterio zonal stats over block polygons) and/or CSV per-block series; manifest `datapack.json` describes layers. Missing pack → provider reports not-loaded; factory order: datapack (if loaded) → terraclim (if ready) → open-meteo → synthetic fallback. rasterio is an optional dependency (import lazily); CSV path must work without it.
 
 ### F. Traced block polygons (R10)
 
@@ -273,18 +273,18 @@ Third provider reading `backend/app/data/datapack/` (gitignored): GeoTIFF raster
 
 Backtest recomputed so day-D flags use only data ≤ D plus the forward projection the engine would have had; response gains `"methodology": "information_limited"` and the UI states it. Keep the event-detection narrative honest ("projected breach N days ahead").
 
-### H. AI Insights — explain anything you click (R18)
+### H. AI Insights: explain anything you click (R18)
 
-- `POST /api/insight` — body `{ "subject_type": "...", "block_id": "B4" (when block-scoped), "subject_id": "..." (e.g. driver key, event date, plan day), "context": {...} (optional client extras, e.g. scenario type) }`. `subject_type` ∈ `block_status · score · driver · mswp · glide_path · pour_slip · battle_plan_entry · battle_plan_skip · season_bank · backtest_event · scenario_delta · photo_analysis · term`.
-- Response: `{ "headline": "...", "explanation": "2-4 plain-English sentences in grower language", "facts": [{"label": "7-day ET0", "value": "6.3 mm/day"}], "caveats": ["Modelled estimate — log a pressure-bomb reading to calibrate."], "source": "template" | "ai", "subject_type": "..." }`.
-- **Deterministic-first, AI-optional (non-negotiable):** the backend assembles all facts from engine state and renders the explanation from templates — always available, no key, no network. If `AI_KEY` is set, the SAME facts may be rephrased by an LLM into more natural prose (`source: "ai"`); the AI receives only the assembled facts and may not introduce numbers or claims. Any AI failure silently falls back to the template. AI never computes; it narrates.
-- `GET /api/insight/glossary` — grower-language dictionary for terms (ET0, ETa, Kc, NDVI, GDD, MSWP/pressure bomb, RDI, TAW, depletion, glide path, Ks, zonal statistics…), also bundled in frontend mocks.
-- Frontend: a global Insight panel (right slide-in on desktop, bottom sheet on mobile) opened by clicking any explainable element — every subject type above gets an unobtrusive explain affordance; keyboard/scr-reader accessible; shows headline, body, facts, caveats, and a "source: engine template / AI-phrased" tag. Fully functional in mock mode.
+- `POST /api/insight`: body `{ "subject_type": "...", "block_id": "B4" (when block-scoped), "subject_id": "..." (e.g. driver key, event date, plan day), "context": {...} (optional client extras, e.g. scenario type) }`. `subject_type` ∈ `block_status · score · driver · mswp · glide_path · pour_slip · battle_plan_entry · battle_plan_skip · season_bank · backtest_event · scenario_delta · photo_analysis · term`.
+- Response: `{ "headline": "...", "explanation": "2-4 plain-English sentences in grower language", "facts": [{"label": "7-day ET0", "value": "6.3 mm/day"}], "caveats": ["Modelled estimate: log a pressure-bomb reading to calibrate."], "source": "template" | "ai", "subject_type": "..." }`.
+- **Deterministic-first, AI-optional (non-negotiable):** the backend assembles all facts from engine state and renders the explanation from templates: always available, no key, no network. If `AI_KEY` is set, the SAME facts may be rephrased by an LLM into more natural prose (`source: "ai"`); the AI receives only the assembled facts and may not introduce numbers or claims. Any AI failure silently falls back to the template. AI never computes; it narrates.
+- `GET /api/insight/glossary`: grower-language dictionary for terms (ET0, ETa, Kc, NDVI, GDD, MSWP/pressure bomb, RDI, TAW, depletion, glide path, Ks, zonal statistics…), also bundled in frontend mocks.
+- Frontend: a global Insight panel (right slide-in on desktop, bottom sheet on mobile) opened by clicking any explainable element. Every subject type above gets an unobtrusive explain affordance; keyboard/scr-reader accessible; shows headline, body, facts, caveats, and a "source: engine template / AI-phrased" tag. Fully functional in mock mode.
 
 ## Conventions (all agents)
 
 - No secrets in git; `.env.example` only. `DEMO_DATE=2026-01-20` is the default demo date.
 - CORS: allow all origins in dev.
 - Code style: professional, sparse comments (constraints only), no emoji, no boilerplate headers, no "AI-generated" tells. Match idiomatic FastAPI / idiomatic React-TS.
-- Frontend design values (colors, spacing, radii, fonts) live in one tokens file — the team re-skins later.
+- Frontend design values (colors, spacing, radii, fonts) live in one tokens file; the team re-skins later.
 - Tests must not hit the network: use a `FixtureProvider` with deterministic synthetic weather.

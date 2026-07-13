@@ -40,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
       <div className="card mx-auto my-10 max-w-md px-6 py-8 text-center">
         <h2 className="font-display text-2xl text-ink">Something went wrong</h2>
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-          This screen hit an unexpected error. Your data is untouched — reload to
+          This screen hit an unexpected error. Your data is untouched. Reload to
           carry on where you left off.
         </p>
         <button

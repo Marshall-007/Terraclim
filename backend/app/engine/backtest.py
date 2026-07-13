@@ -1,3 +1,11 @@
+"""Information-limited backtest: replays past days using only the data the
+engine would actually have had at the time, to honestly evaluate whether it
+would have caught real stress events (like a heat spike) ahead of time.
+
+Nothing here peeks at weather or depletion measured after a given row's own
+date; the "projection" on each row is what the engine's forward model would
+have produced running from that day forward, exactly as it does live.
+"""
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -18,20 +26,23 @@ HARVEST_GDD = 1600.0
 
 
 def _season_start(as_of: date) -> date:
+    """1 September of the Southern-Hemisphere season containing as_of (local
+    copy of services.season_start to keep this module free of the services
+    import cycle)."""
     year = as_of.year if as_of.month >= 9 else as_of.year - 1
     return date(year, 9, 1)
 
 
 def _block_daily(block, provider, targets, kc, season: date, as_of: date, irrigation: dict) -> list[dict]:
     """Per-day record for one block. Each day D carries its actual state (from data
-    up to and including D) and a *projected* signal — what the engine's own forward
+    up to and including D) and a *projected* signal: what the engine's own forward
     model, run at D on a forecast it would have had, expected over the next week. No
     row consults weather or depletion measured after its own date: the backtest is
     information-limited."""
     factor = variety_factor(block.variety)
     history = provider.get_daily(block.lat, block.lon, season, as_of)
     # Forward weather the engine would have projected from; deterministic here, a live
-    # forecast feed in production (disclosed — no archived forecast exists to replay).
+    # forecast feed in production (disclosed: no archived forecast exists to replay).
     forward_ext = provider.get_daily(
         block.lat, block.lon, as_of + timedelta(days=1), as_of + timedelta(days=PROJECTION_DAYS)
     )
@@ -77,12 +88,14 @@ def _block_daily(block, provider, targets, kc, season: date, as_of: date, irriga
 
 
 def _score_at(rows: list[dict], i: int) -> int:
-    """Score with the forward component drawn from the day-i projection — the same
+    """Score with the forward component drawn from the day-i projection: the same
     now/forecast blend the live engine uses, never a peek at realised future state."""
     return score_value(rows[i]["dev"], rows[i]["proj_dev"])
 
 
 def run_backtest(blocks, provider, as_of: date, months: int, targets: dict, kc: dict, irrigation_lookup) -> dict:
+    """Replay the last `months` of the season for every block and return the
+    farm-wide score series plus any detected heat-spike events with their lead time."""
     window_start = as_of - relativedelta(months=months)
     season = _season_start(as_of)
 
@@ -128,11 +141,16 @@ def run_backtest(blocks, provider, as_of: date, months: int, targets: dict, kc: 
 
 
 def _detect_heat_spikes(window_dates, farm_tmax, per_block, idx_by_date) -> list[dict]:
+    """Find local-maximum days at or above HEAT_SPIKE_TMAX in the farm-mean max
+    temperature, then collapse nearby days into single events."""
     spikes: list[date] = []
     for k, d in enumerate(window_dates):
         t = farm_tmax[d]
         if t < HEAT_SPIKE_TMAX:
             continue
+        # A "spike" day must be the hottest within its own +/-2-day neighbourhood,
+        # not just any day over the threshold, so a multi-day heat wave registers
+        # once at its peak rather than as several overlapping events.
         neighbours = [farm_tmax[window_dates[j]]
                       for j in range(max(0, k - 2), min(len(window_dates), k + 3))]
         if t >= max(neighbours):
@@ -154,7 +172,7 @@ def _detect_heat_spikes(window_dates, farm_tmax, per_block, idx_by_date) -> list
 def _build_event(peak: date, farm_tmax, per_block, idx_by_date) -> dict:
     """Flag a block if, at a decision day in the fortnight *before* the peak, the
     engine's forward projection (run on data up to that day) crossed the block into
-    a too-dry breach while it was still in band — a genuine ahead-of-time warning,
+    a too-dry breach while it was still in band: a genuine ahead-of-time warning,
     not a block already out of band. Lead = the earliest such warning day."""
     pi = idx_by_date[peak]
     flagged: list[str] = []

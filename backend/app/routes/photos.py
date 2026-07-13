@@ -1,3 +1,9 @@
+"""Field-photo upload and canopy-stress screening API.
+
+Growers upload a phone photo of a block's canopy; the engine re-encodes it,
+runs a deterministic colour-based stress heuristic (no ML), and cross-checks
+the visual read against the water-balance model's current verdict for the block.
+"""
 from __future__ import annotations
 
 import uuid
@@ -25,6 +31,7 @@ MAX_BYTES = 10 * 1024 * 1024  # 10 MB upload ceiling
 
 
 def _find_block(block_id: str):
+    """Fetch a block by id or raise 404."""
     block = next((b for b in load_blocks() if b.id == block_id), None)
     if block is None:
         raise HTTPException(status_code=404, detail=f"block '{block_id}' not found")
@@ -32,6 +39,8 @@ def _find_block(block_id: str):
 
 
 def _public(record: dict) -> dict:
+    """Shape a stored photo record for API responses: drops internal storage
+    fields (e.g. filename) and adds the client-facing file URL."""
     return {
         "photo_id": record["photo_id"],
         "block_id": record["block_id"],
@@ -51,7 +60,15 @@ async def upload_photo(
     as_of: date = Depends(parse_as_of),
     provider=Depends(get_provider_dep),
 ):
+    """Upload and analyse a canopy photo for a block. Validates size/type, re-encodes
+    to a clean JPEG (strips EXIF and any embedded payload), runs the colour-based
+    stress heuristic, and flags whether it agrees with the block's current
+    water-balance verdict. Side effect: writes the JPEG and its metadata to disk
+    under app/data/photos/ (see services.store_photo)."""
     block = _find_block(block_id)
+    # content_type is a client-supplied header and easily spoofed; this is just a
+    # fast, best-effort reject. process_upload() below does the real validation by
+    # attempting to decode the bytes as an image.
     if image.content_type and not image.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="uploaded file is not an image")
 
@@ -72,11 +89,15 @@ async def upload_photo(
     )
 
     try:
+        # A malformed client-supplied date is a cosmetic problem, not a reason to
+        # fail the whole upload; fall back to the app's as_of "today" instead.
         photo_date = date.fromisoformat(date_str).isoformat() if date_str else as_of.isoformat()
     except ValueError:
         photo_date = as_of.isoformat()
 
     photo_id = uuid.uuid4().hex
+    # Form fields aren't schema-validated like the JSON-body models, so the note's
+    # length cap is enforced manually here (matches ValidationReading.note).
     note_clean = (note or "").strip()[:500] or None
     record = store_photo(
         photo_id,
@@ -94,12 +115,16 @@ async def upload_photo(
 
 @router.get("/{block_id}")
 def list_photos(block_id: str):
+    """Photos logged for a block, newest first."""
     _find_block(block_id)
     return [_public(r) for r in photos_for_block(block_id)]
 
 
 @router.get("/file/{photo_id}")
 def get_photo_file(photo_id: str):
+    """Stream a stored photo's JPEG bytes. X-Content-Type-Options blocks MIME
+    sniffing on the served image, and a short private cache avoids re-reading the
+    file from disk on every view without caching it anywhere shared."""
     record = photo_record(photo_id)
     if record is None:
         raise HTTPException(status_code=404, detail="photo not found")

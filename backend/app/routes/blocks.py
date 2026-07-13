@@ -1,3 +1,10 @@
+"""Vineyard block CRUD and per-block status/timeseries API.
+
+Blocks are served as GeoJSON: fixture (demo) blocks from app/data/blocks.geojson
+plus any user-traced polygons persisted to app/data/user_blocks.geojson. This
+module also exposes the current Stress Glide Path evaluation and the depletion
+history/forecast used to draw a block's chart.
+"""
 from __future__ import annotations
 
 from datetime import date
@@ -25,6 +32,7 @@ router = APIRouter(prefix="/api/blocks", tags=["blocks"])
 
 
 def _find_block(block_id: str):
+    """Look up a block by id across both fixture and user-created blocks, or 404."""
     for b in load_blocks():
         if b.id == block_id:
             return b
@@ -32,6 +40,10 @@ def _find_block(block_id: str):
 
 
 def _validate_polygon(geometry: dict) -> dict:
+    """Defensively validate a client-supplied GeoJSON geometry before it is persisted
+    or fed into area/centroid math: must be a Polygon with well-formed coordinates,
+    every vertex a numeric [lon, lat] within range, and at least 3 distinct vertices
+    (guards against degenerate shapes like a line or a single repeated point)."""
     if not isinstance(geometry, dict) or geometry.get("type") != "Polygon":
         raise HTTPException(status_code=400, detail="geometry must be a GeoJSON Polygon")
     coords = geometry.get("coordinates")
@@ -57,14 +69,20 @@ def _validate_polygon(geometry: dict) -> dict:
 
 @router.get("")
 def list_blocks():
+    """All vineyard blocks (fixture + user-traced) as one GeoJSON FeatureCollection."""
     return blocks_geojson()
 
 
 @router.post("", status_code=201)
 def create_block(body: NewBlock):
+    """Create a user-traced block from a hand-drawn polygon: validates the geometry,
+    computes its area and centroid, assigns it a 'U<n>' id, and appends it to
+    app/data/user_blocks.geojson (writes to disk, persists across restarts)."""
     geometry = _validate_polygon(body.geometry)
     area_ha = polygon_area_ha(geometry)
     if area_ha <= 0:
+        # A validated polygon can still enclose no area (e.g. collinear or
+        # self-intersecting vertices); reject it rather than store a useless block.
         raise HTTPException(status_code=400, detail="polygon has zero area")
     block_id = next_user_block_id()
     feature = {
@@ -90,6 +108,10 @@ def create_block(body: NewBlock):
 
 @router.delete("/{block_id}")
 def delete_block(block_id: str):
+    """Delete a user-traced block. Writes the updated FeatureCollection back to
+    app/data/user_blocks.geojson."""
+    # Fixture demo blocks (ids like "B1") are read-only seed data; only ids this
+    # API assigned itself (next_user_block_id's "U<n>" scheme) may be removed.
     if not block_id.startswith("U"):
         raise HTTPException(status_code=400, detail="only user-created blocks (U*) can be deleted")
     store = read_user_blocks()
@@ -103,6 +125,8 @@ def delete_block(block_id: str):
 
 @router.get("/{block_id}/status")
 def block_status(block_id: str, as_of: date = Depends(parse_as_of), provider=Depends(get_provider_dep)):
+    """Current Stress Glide Path evaluation for one block: stage, depletion, target
+    band, score/traffic, MSWP estimate, drivers, and the pour-slip recommendation."""
     block = _find_block(block_id)
     ev = evaluate_block(block, as_of, provider, stress_targets(), kc_curves())
     return ev.response
@@ -115,6 +139,9 @@ def block_timeseries(
     as_of: date = Depends(parse_as_of),
     provider=Depends(get_provider_dep),
 ):
+    """Depletion/ET history for the trailing `days` plus the forward forecast
+    window, shaped for the frontend's glide-path chart (actuals and target band
+    per day, then the same shape for the projected days ahead)."""
     block = _find_block(block_id)
     targets = stress_targets()
     kc = kc_curves()
@@ -135,6 +162,9 @@ def block_timeseries(
             "band_hi": hi,
             "stage": bd.stage,
         }
+        # eta/ndvi are only present when the active provider supplies satellite data
+        # (e.g. the curated data pack); omitted entirely rather than sent as null so
+        # providers without that data don't imply a false reading of zero.
         if bd.eta is not None:
             row["eta"] = bd.eta
         if bd.ndvi is not None:

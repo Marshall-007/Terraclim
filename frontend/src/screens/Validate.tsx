@@ -13,8 +13,17 @@ import { Icon } from '../components/layout/icons';
 import { fmtMpa, fmtSigned } from '../lib/format';
 import { color } from '../theme/tokens';
 
+/**
+ * "Trust, made visible" screen (v2 §C / R13): the model-vs-field-truth tab
+ * compares modelled MSWP against logged pressure-bomb readings, an optional
+ * satellite reference series, and photo GLI trends for one block at a time;
+ * the backtest tab reuses `BacktestPanel` to show the same replay found on
+ * the standalone Backtest route. Selection (block, tab) lives in the URL.
+ */
+
 type Tab = 'model' | 'backtest';
 
+/** Validates and submits a manual pressure-bomb reading for one block. */
 function LogReadingForm({
   blockId,
   defaultDate,
@@ -55,7 +64,7 @@ function LogReadingForm({
       setNote('');
       onLogged();
     } catch {
-      setError('Could not log the reading — try again.');
+      setError('Could not log the reading. Try again.');
     } finally {
       setBusy(false);
     }
@@ -117,7 +126,7 @@ function LogReadingForm({
           </span>
           {result.model_mswp_mpa != null && result.delta_mpa != null ? (
             <span className="nums text-ink-soft">
-              Model that day: {fmtMpa(result.model_mswp_mpa)} —{' '}
+              Model that day: {fmtMpa(result.model_mswp_mpa)},{' '}
               {Math.abs(result.delta_mpa) < 0.005 ? (
                 'spot on.'
               ) : (
@@ -142,7 +151,7 @@ function ModelTab({ blockId }: { blockId: string }) {
   const statusQ = useAsync(() => api.getBlockStatus(blockId), [blockId]);
   const photosQ = useAsync(() => api.getPhotos(blockId), [blockId]);
 
-  // Full-screen loading only on first fetch — a reload after logging a
+  // Full-screen loading only on first fetch: a reload after logging a
   // reading must not unmount the form (it would wipe the delta feedback).
   if (valQ.loading && !valQ.data) {
     return (
@@ -179,19 +188,19 @@ function ModelTab({ blockId }: { blockId: string }) {
               <span>Bias (reading − model)</span>
             </Explainable>
           }
-          value={hasReadings ? `${fmtSigned(a.bias, 2)}` : '—'}
+          value={hasReadings ? `${fmtSigned(a.bias, 2)}` : 'N/A'}
           unit={hasReadings ? 'MPa' : undefined}
           hint={hasReadings ? (a.bias < 0 ? 'model reads slightly wet' : a.bias > 0 ? 'model reads slightly dry' : 'no systematic drift') : 'log a reading'}
         />
         <StatTile
           label="RMSE"
-          value={hasReadings ? a.rmse.toFixed(2) : '—'}
+          value={hasReadings ? a.rmse.toFixed(2) : 'N/A'}
           unit={hasReadings ? 'MPa' : undefined}
         />
         <StatTile label="Readings (n)" value={a.n} accent={color.bordeaux} />
         <StatTile
           label="Within target band"
-          value={hasReadings ? `${a.within_band_pct}%` : '—'}
+          value={hasReadings ? `${a.within_band_pct}%` : 'N/A'}
           hint={hasReadings ? 'of pressure-bomb readings' : undefined}
         />
       </div>
@@ -217,7 +226,7 @@ function ModelTab({ blockId }: { blockId: string }) {
           <p className="mt-3 border-t border-line pt-3 text-xs leading-relaxed text-ink-muted">
             The WaPOR / FruitLook reference series overlays here once the ET-GEO data
             pack is loaded (Settings → Data pack). Until then the model is checked
-            against pressure-bomb readings only — no synthetic reference is shown.
+            against pressure-bomb readings only. No synthetic reference is shown.
           </p>
         )}
       </Section>
@@ -238,7 +247,7 @@ function ModelTab({ blockId }: { blockId: string }) {
       {/* photo GLI corroboration */}
       <Section
         title="Field-photo GLI trend"
-        hint="Green Leaf Index from canopy photos — a declining GLI corroborates rising modelled stress."
+        hint="Green Leaf Index from canopy photos: a declining GLI corroborates rising modelled stress."
       >
         {photos.length > 0 ? (
           <GliTrend photos={photos} />
@@ -272,7 +281,7 @@ export function Validate() {
       <PageHeader
         eyebrow="Trust, made visible"
         title="Validate"
-        subtitle="Check the model against field truth: pressure-bomb readings, WaPOR/FruitLook reference series and canopy photos — plus a hindsight-free replay of the season."
+        subtitle="Check the model against field truth: pressure-bomb readings, WaPOR/FruitLook reference series and canopy photos, plus a hindsight-free replay of the season."
       />
 
       {/* tab switcher */}

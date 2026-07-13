@@ -1,9 +1,9 @@
 # Vino Backend
 
-FastAPI backend for **Vino** — a vineyard irrigation intelligence engine built around
+FastAPI backend for **Vino**, a vineyard irrigation intelligence engine built around
 the *Stress Glide Path*: the target root-zone deficit band that moves with the season,
 grape variety, and wine style. A block goes red when it drifts out of its band in
-*either* direction — too dry, or (the alert nobody else has) too wet.
+*either* direction: too dry, or (the alert nobody else has) too wet.
 
 The engine is deterministic and auditable end to end: **stage → water balance →
 deviation → prescription**. AI is never used for numbers.
@@ -90,19 +90,19 @@ the season containing `as_of`.
 The engine only ever sees the `ClimateProvider` interface (`app/providers/base.py`).
 Selection order: **data pack** (if loaded) → **TerraClim** (if ready) → **Open-Meteo** → synthetic fallback.
 
-- **DataPackProvider** — reads the ET-GEO curated pack from `app/data/datapack/` (gitignored)
+- **DataPackProvider**: reads the ET-GEO curated pack from `app/data/datapack/` (gitignored)
   via a `datapack.json` manifest. CSV per-block series work with **no extra dependencies**;
-  GeoTIFF raster zonal statistics use **rasterio, imported lazily** and **optional** — it is
+  GeoTIFF raster zonal statistics use **rasterio, imported lazily** and **optional**. It is
   *not* in `requirements.txt`. Install it (`pip install rasterio shapely`) only to read raster
   layers; the CSV path needs neither. Retrospective source: no forecast (the forward layer
   supplies that). A synthetic sample pack for testing:
   ```bash
-  python -m scripts.make_sample_datapack   # writes CSV sample data — clearly labelled synthetic, NOT TerraClim data
+  python -m scripts.make_sample_datapack   # writes CSV sample data: clearly labelled synthetic, NOT TerraClim data
   ```
-- **Open-Meteo** (default, no key) — historical archive + forecast, FAO-56 ET0.
-- **TerraClim** — drop-in adapter, auto-selected once a token is present and the
+- **Open-Meteo** (default, no key): historical archive + forecast, FAO-56 ET0.
+- **TerraClim**: drop-in adapter, auto-selected once a token is present and the
   adapter is marked ready. Stubbed until Day-0 credentials arrive.
-- **Fixture** — deterministic synthetic weather for tests (no network) and as a
+- **Fixture**: deterministic synthetic weather for tests (no network) and as a
   resilience fallback: if the live provider is unreachable, calls transparently fall
   back to synthetic data with a logged warning, so the demo never shows an error screen.
   Synthetic weather includes plausible `eta`/`ndvi` so the measured-channel paths are exercised.
@@ -116,7 +116,7 @@ a season of managed-deficit irrigation events. This is what lets the blocks sit 
 their glide paths (a mix of on-track, too-dry, and one deliberately over-watered
 too-wet block) instead of saturating at full depletion, as an unirrigated rain-fed
 balance would by mid-summer. The history is generated deterministically and is fully
-auditable — the balance replays it exactly (log → balance → status):
+auditable: the balance replays it exactly (log → balance → status):
 
 ```bash
 python -m scripts.seed_irrigation      # regenerate app/data/irrigation_log.json

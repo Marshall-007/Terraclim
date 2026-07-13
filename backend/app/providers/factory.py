@@ -1,3 +1,11 @@
+"""Provider selection: turns app settings into a single resilient weather source.
+
+Chooses among the curated data pack, TerraClim, and Open-Meteo (see
+`_select_primary`), wraps the choice in the disk cache, and wraps that in
+`ResilientProvider` so every caller gets a `ClimateProvider`-shaped object
+that degrades to synthetic data instead of raising.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -77,6 +85,12 @@ def _select_primary(settings) -> tuple[object, str, bool, bool]:
 
 
 def get_provider(settings) -> ResilientProvider:
+    """Build the app's resilient weather provider for the current settings.
+
+    `force_fixture` is a demo/test override: when set it always serves the
+    deterministic synthetic fixture (bypassing normal provider selection) so
+    behaviour is fully reproducible regardless of network or token state.
+    """
     cache = DiskCache(settings.cache_ttl_hours)
     if settings.force_fixture:
         fixture = FixtureProvider()

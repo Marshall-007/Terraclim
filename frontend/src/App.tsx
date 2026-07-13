@@ -12,6 +12,11 @@ import { Backtest } from './screens/Backtest';
 import { Validate } from './screens/Validate';
 import { Settings } from './screens/Settings';
 
+/**
+ * Root component: wires up client-side routing, the crash-isolating error
+ * boundary, and the global Insight provider, then declares every screen's
+ * route under the shared <AppShell /> layout.
+ */
 export function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>

@@ -23,6 +23,13 @@ import { color } from '../../theme/tokens';
 import { Icon } from '../layout/icons';
 import { Spinner } from '../common/states';
 
+/**
+ * The Leaflet map used on the Dashboard and Field Mode: renders every block
+ * polygon colored by traffic light/status, and (when `allowTrace` is set)
+ * hosts the "trace a block" draw tool that lets a grower digitize a new
+ * block by clicking its corners directly on satellite imagery.
+ */
+
 export interface MapBlockState {
   traffic: Traffic;
   status: Status;
@@ -43,7 +50,7 @@ const BASEMAPS: Record<Basemap, { url: string; attribution: string }> = {
 
 /**
  * Injects an SVG hatch pattern into Leaflet's overlay pane once, so too-wet
- * blocks can be filled with a cool blue diagonal hatch — the "you're
+ * blocks can be filled with a cool blue diagonal hatch: the "you're
  * over-watering" signal, legible even against the traffic-light greens/reds.
  */
 function HatchDefs() {
@@ -127,8 +134,8 @@ function BlockPolygons({
 }
 
 /**
- * Trace-a-block draw tool, written directly against Leaflet click events —
- * no draw-plugin dependency. Clicks append vertices; the preview shows the
+ * Trace-a-block draw tool, written directly against Leaflet click events
+ * (no draw-plugin dependency). Clicks append vertices; the preview shows the
  * clicked path, a dashed closing edge and the running area.
  */
 function TraceClicks({
@@ -245,7 +252,7 @@ function TraceForm({
         application_rate_mm_h: rateNum,
       });
     } catch {
-      setError('Could not save the block — try again.');
+      setError('Could not save the block. Try again.');
       setSaving(false);
     }
   };
@@ -331,6 +338,13 @@ function TraceForm({
   );
 }
 
+/**
+ * Renders the block polygons on a Leaflet map and, when tracing is active,
+ * drives a small local state machine for the "trace a block" flow: idle
+ * (button visible) → tracing (collecting click vertices) → form (metadata
+ * entered) → saved (POSTs the polygon, resets, and tells the parent to
+ * refetch blocks). Escape at any point during tracing cancels back to idle.
+ */
 export function BlockMap({
   features,
   states,
@@ -415,7 +429,7 @@ export function BlockMap({
         {tracing && <TracePreview vertices={vertices} />}
       </MapContainer>
 
-      {/* Map controls — rendered above Leaflet's panes */}
+      {/* Map controls: rendered above Leaflet's panes */}
       <div className="absolute right-3 top-3 z-[1000] flex flex-col items-end gap-2">
         <div className="flex overflow-hidden rounded-md border border-line bg-surface shadow-card">
           {(['satellite', 'streets'] as Basemap[]).map((b) => (

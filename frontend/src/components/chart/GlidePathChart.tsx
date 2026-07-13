@@ -22,6 +22,9 @@ interface Row {
   fcst: number | null;
 }
 
+// Merges history + forecast into one row series for a single chart: `hist`
+// is populated for measured days and `fcst` for projected ones, with exactly
+// one row (the last historical day) carrying both values.
 function buildRows(ts: Timeseries): { rows: Row[]; asOf: string; current: number } {
   const rows: Row[] = ts.history.map((h) => ({
     date: h.date,
@@ -67,6 +70,11 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
+/**
+ * The core "glide path" visualization: depletion fraction over time against
+ * its target band, with 45 days of measured history (solid line) flowing
+ * into a 14-day forecast (dashed line) and a dot marking today's reading.
+ */
 export function GlidePathChart({
   timeseries,
   status,

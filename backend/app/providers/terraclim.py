@@ -1,15 +1,18 @@
+"""TerraClim weather provider: hackathon-partner data source, not yet implemented.
+
+Drop-in adapter for the TerraClim API. It constructs cleanly so the app can
+wire it up at startup, but its endpoints are stubbed until the hackathon
+token and API details are confirmed on Day 0 (`ready` stays False until
+then, so `factory.py` keeps serving Open-Meteo and the app never breaks).
+Request shapes documented in each method below follow the published
+TerraClim surface, so implementation is a fill-in, not a redesign.
+"""
+
 from __future__ import annotations
 
 from datetime import date
 
 from .base import DailyWeather
-
-# TerraClim drop-in adapter. It constructs cleanly so the app can wire it up at
-# startup, but its endpoints are not implemented until the hackathon token and
-# API details are confirmed on Day 0. `ready` stays False until then, so the
-# factory keeps serving Open-Meteo and the app never breaks. Request shapes below
-# are documented against the published TerraClim surface so implementation is a
-# fill-in, not a redesign.
 
 
 class TerraClimProvider:

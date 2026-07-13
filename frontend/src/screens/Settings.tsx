@@ -9,6 +9,13 @@ import { providerLabel } from '../lib/status';
 import { fmtFullDate } from '../lib/format';
 import { color } from '../theme/tokens';
 
+/**
+ * Data-source and demo-control screen (v2 §D): lets a grower or judge switch
+ * the active climate provider (data pack / TerraClim / Open-Meteo) live,
+ * force a full cache refresh, and roll the engine's `as_of` date forward or
+ * back for the demo, all without a redeploy or restart.
+ */
+
 function StatusChip({
   tone,
   children,
@@ -70,7 +77,7 @@ function TerraClimControls({
   settings: SettingsData;
   onChanged: () => void;
 }) {
-  // Token lives only in this input's state — never persisted, never echoed.
+  // Token lives only in this input's state: never persisted, never echoed.
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -83,7 +90,7 @@ function TerraClimControls({
       token: token || undefined,
     });
     if (res.ok) {
-      setMessage({ ok: true, text: 'Live test call passed — TerraClim is now the active source.' });
+      setMessage({ ok: true, text: 'Live test call passed: TerraClim is now the active source.' });
       setToken('');
       onChanged();
     } else {
@@ -116,7 +123,7 @@ function TerraClimControls({
       )}
       <p className="text-[11px] leading-relaxed text-ink-muted">
         Validated with one live call before switching. The token is sent once and
-        stored server-side only — never in this browser.
+        stored server-side only, never in this browser.
       </p>
     </div>
   );
@@ -161,7 +168,7 @@ function CacheSection({ onChanged }: { onChanged: () => void }) {
       setResult(res);
       onChanged();
     } catch {
-      setError('Cache refresh failed — is the backend reachable?');
+      setError('Cache refresh failed: is the backend reachable?');
     } finally {
       setBusy(false);
     }
@@ -232,7 +239,7 @@ function DemoDateSection({
   return (
     <Section
       title="Engine date (as_of)"
-      hint="The engine evaluates the farm as of this date — a runtime demo control, no env edit or restart."
+      hint="The engine evaluates the farm as of this date (a runtime demo control, no env edit or restart)."
     >
       <div className="flex flex-wrap items-end gap-3">
         <label className="block text-xs font-medium text-ink-soft">
@@ -293,7 +300,7 @@ export function Settings() {
       <PageHeader
         eyebrow="Data source & demo controls"
         title="Settings"
-        subtitle={`Active source: ${providerLabel(s.provider)} · as of ${fmtFullDate(s.as_of)}. Switch providers live — no code change, no redeploy.`}
+        subtitle={`Active source: ${providerLabel(s.provider)} · as of ${fmtFullDate(s.as_of)}. Switch providers live: no code change, no redeploy.`}
       />
 
       {/* provider cards */}
@@ -303,7 +310,7 @@ export function Settings() {
           active={s.provider === 'datapack'}
           chip={s.provider === 'datapack' ? 'Active' : s.datapack.loaded ? 'Loaded' : 'Not loaded'}
           chipTone={s.provider === 'datapack' ? 'active' : s.datapack.loaded ? 'ready' : 'pending'}
-          description="The ET-GEO pack: 10 m daily ETo rasters, Sentinel-2 vigour, Kc/phenology and RF ETa — zonal statistics over each traced polygon. Activates automatically once the pack is dropped into backend/app/data/datapack/."
+          description="The ET-GEO pack: 10 m daily ETo rasters, Sentinel-2 vigour, Kc/phenology and RF ETa, all computed as zonal statistics over each traced polygon. Activates automatically once the pack is dropped into backend/app/data/datapack/."
         >
           {s.datapack.loaded && s.datapack.layers && (
             <div className="flex flex-wrap gap-1.5">
@@ -325,7 +332,7 @@ export function Settings() {
           chipTone={
             s.provider === 'terraclim' ? 'active' : s.terraclim_ready ? 'ready' : 'pending'
           }
-          description="Terrain-adjusted climate surfaces, long-term normals and polygon zonal statistics — the foundation layer that knows where every block sits."
+          description="Terrain-adjusted climate surfaces, long-term normals and polygon zonal statistics: the foundation layer that knows where every block sits."
         >
           <TerraClimControls settings={s} onChanged={settingsQ.reload} />
         </ProviderCard>
@@ -335,7 +342,7 @@ export function Settings() {
           active={s.provider === 'open-meteo'}
           chip={s.provider === 'open-meteo' ? 'Active' : 'Standby'}
           chipTone={s.provider === 'open-meteo' ? 'active' : 'ready'}
-          description="Free global archive + 14-day forecast feed — the forward-looking layer. No key needed; always available as the fallback."
+          description="Free global archive + 14-day forecast feed: the forward-looking layer. No key needed; always available as the fallback."
         >
           <OpenMeteoControls settings={s} onChanged={settingsQ.reload} />
         </ProviderCard>

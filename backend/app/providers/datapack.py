@@ -1,3 +1,7 @@
+"""Third climate data provider: reads a curated, pre-downloaded local "data
+pack" (CSV per-block time series, optionally GeoTIFF rasters) instead of
+calling a live weather API. Retrospective and offline by design.
+"""
 from __future__ import annotations
 
 import csv
@@ -25,6 +29,8 @@ _ALIASES = {
 
 
 def _num(value):
+    """Best-effort float parse for a CSV cell; blank or unparsable becomes None
+    rather than raising, so one bad cell doesn't sink the whole row."""
     if value is None or value == "":
         return None
     try:
@@ -36,7 +42,7 @@ def _num(value):
 class DataPackProvider:
     """Third provider for the ET-GEO curated data pack: local CSV per-block series
     (no extra deps) and/or GeoTIFF rasters read via rasterio zonal statistics
-    (imported lazily — rasterio is an optional dependency, the CSV path never needs
+    (imported lazily: rasterio is an optional dependency, the CSV path never needs
     it). Retrospective by design: no forecast. Missing pack -> not loaded, and the
     factory falls through to the next provider."""
 
@@ -50,6 +56,9 @@ class DataPackProvider:
         self._load_manifest()
 
     def _load_manifest(self) -> None:
+        """Read datapack.json and eagerly load every block's CSV series it
+        references, keyed by rounded (lat, lon) for approximate-match lookup.
+        A missing or unreadable manifest just leaves the provider unloaded."""
         manifest_path = self.directory / MANIFEST_NAME
         if not manifest_path.exists():
             return
@@ -69,6 +78,9 @@ class DataPackProvider:
         self.loaded = bool(self._series) or bool(self.manifest.get("rasters"))
 
     def _read_csv(self, path: Path) -> list[DailyWeather]:
+        """Parse one block's CSV into DailyWeather rows, tolerating unknown
+        column names via _ALIASES and skipping rows missing the required
+        et0/tmax/tmin fields rather than failing the whole file."""
         try:
             text = path.read_text()
         except OSError:
@@ -98,6 +110,9 @@ class DataPackProvider:
         return out
 
     def _match(self, lat: float, lon: float) -> list[DailyWeather] | None:
+        """Nearest loaded CSV series within MATCH_TOLERANCE_DEG of (lat, lon),
+        by simple L1 distance (fine at this tolerance/latitude); falls back to
+        raster zonal statistics when no CSV series is close enough."""
         best, best_d = None, MATCH_TOLERANCE_DEG
         for (blat, blon), rows in self._series.items():
             dist = abs(blat - lat) + abs(blon - lon)
@@ -123,6 +138,9 @@ class DataPackProvider:
         )
 
     def get_daily(self, lat: float, lon: float, start: date, end: date) -> list[DailyWeather]:
+        """Return the [start, end] slice of the matched series, or raise
+        ProviderError so the resilient wrapper can fall through to the next
+        provider (unloaded pack, no nearby series, or an incomplete window)."""
         if not self.loaded:
             raise ProviderError("data pack not loaded")
         rows = self._match(lat, lon)

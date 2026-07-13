@@ -11,12 +11,19 @@ import { stageLabel, styleLabel } from '../lib/status';
 import { fmtFraction, fmtFullDate, fmtMm, fmtMpa, fmtMpaBand } from '../lib/format';
 import { color } from '../theme/tokens';
 
+/**
+ * Field prescription screen: renders a printable "pour slip" card per block,
+ * plus a plain-text version for sharing straight to the crew over WhatsApp
+ * via a wa.me deep link.
+ */
+
+/** Builds a wa.me share link whose text mirrors the printed slip's numbers. */
 function buildWhatsApp(block: BlockFeature['properties'], s: BlockStatus): string {
   const lines =
     s.pour_slip.type === 'hold'
       ? [
           `Vino slip · ${block.id} ${block.name}`,
-          `HOLD — soil is wet (${s.pour_slip.hold_days} days above target)`,
+          `HOLD: soil is wet (${s.pour_slip.hold_days} days above target)`,
           `Stage ${stageLabel(s.stage)} · depletion ${fmtFraction(s.depletion_fraction)} (band ${s.target_band[0].toFixed(2)}-${s.target_band[1].toFixed(2)})`,
           `Next check ${s.pour_slip.next_check}`,
         ]
@@ -177,7 +184,7 @@ export function PourSlips() {
         <PageHeader
           eyebrow="Field prescription"
           title="Pour Slips"
-          subtitle="A clean card the foreman carries — print it, or share tonight's instruction straight to the crew on WhatsApp."
+          subtitle="A clean card the foreman carries: print it, or share tonight's instruction straight to the crew on WhatsApp."
         />
       </div>
 

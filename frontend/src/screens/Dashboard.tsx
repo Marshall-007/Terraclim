@@ -11,6 +11,14 @@ import { LoadingPanel, ErrorState, Skeleton } from '../components/common/states'
 import { Icon } from '../components/layout/icons';
 import { color } from '../theme/tokens';
 
+/**
+ * The farm-wide home screen: a map of every block colored by status/traffic,
+ * a ranked list (worst pressure first) driven by the same briefing data, and
+ * a detail panel for whichever block is selected. Selection is stored in the
+ * URL's `?block=` param rather than component state, so a link to a specific
+ * block (e.g. from a notification) opens straight to it.
+ */
+
 function countByStatus(b: Briefing): Record<Status, number> {
   const acc: Record<Status, number> = { on_track: 0, too_dry: 0, too_wet: 0 };
   for (const blk of b.blocks) acc[blk.status]++;

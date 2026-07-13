@@ -8,6 +8,13 @@ import { useAsync } from '../../hooks/useApi';
 import { api } from '../../services/api';
 import { fmtFullDate } from '../../lib/format';
 
+/**
+ * The app's top-level chrome: desktop sidebar nav, mobile top bar + bottom
+ * tab bar (with an overflow "More" sheet for the remaining routes), and the
+ * error boundary that isolates a crashing screen from the rest of the shell.
+ * Rendered once by the router; every route renders into the <Outlet />.
+ */
+
 interface NavItem {
   to: string;
   label: string;
@@ -139,7 +146,7 @@ export function AppShell() {
         </div>
       </header>
 
-      {/* Main — boundary keeps the shell/nav alive if a screen crashes. */}
+      {/* Main: boundary keeps the shell/nav alive if a screen crashes. */}
       <main className="min-w-0 flex-1 pb-24 lg:pb-0">
         <div className="mx-auto max-w-content px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <ErrorBoundary resetKey={location.pathname}>

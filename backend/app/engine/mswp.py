@@ -1,13 +1,25 @@
-from __future__ import annotations
+"""Modelled midday stem water potential (MSWP) equivalent.
 
-# Modelled midday stem water potential (MSWP) equivalent. Growers manage RDI by
-# pressure-bomb MPa, not depletion fraction, so the engine maps its fraction to a
-# stage-dependent MPa band by piecewise-linear interpolation between literature
-# anchors (see app/data/mswp_map.json, marked modelled). One real reading anchors
-# the block; there is no universal conversion.
+Growers manage regulated deficit irrigation by pressure-bomb MPa readings, not
+depletion fraction, so this module maps the engine's internal depletion
+fraction to a stage-dependent MPa band by piecewise-linear interpolation
+between literature anchors (see app/data/mswp_map.json, marked modelled).
+This is an estimate for context, not a substitute for a real reading: one
+actual pressure-bomb reading anchors a block precisely, but there is no
+universal fraction-to-MPa conversion across sites and varieties.
+"""
+
+from __future__ import annotations
 
 
 def _interp(anchors: list[list[float]], f: float) -> float:
+    """Piecewise-linear interpolation of MPa at depletion fraction `f`.
+
+    `anchors` are (fraction, MPa) literature control points, sorted here so
+    callers may supply them in any order. Fractions outside the anchor range
+    clamp to the nearest endpoint rather than extrapolating, since the MPa
+    response isn't known to stay linear beyond the calibrated range.
+    """
     pts = sorted((float(a[0]), float(a[1])) for a in anchors)
     if f <= pts[0][0]:
         return pts[0][1]
@@ -22,11 +34,15 @@ def _interp(anchors: list[list[float]], f: float) -> float:
 
 
 def _anchors_for(mswp_map: dict, stage: str) -> list[list[float]]:
+    # Fall back to the veraison curve (mid-season, best-characterised stage) when
+    # a stage has no anchors of its own, then to a generic two-point line if the
+    # map itself is missing/empty, so an incomplete mswp_map.json never raises.
     anchors = mswp_map.get("anchors", {})
     return anchors.get(stage) or anchors.get("veraison") or [[0.0, -0.5], [1.0, -1.6]]
 
 
 def estimate_mpa(mswp_map: dict, stage: str, depletion_fraction: float) -> float:
+    """Estimated MSWP, in MPa, for the block's current depletion fraction and stage."""
     return round(_interp(_anchors_for(mswp_map, stage), depletion_fraction), 2)
 
 

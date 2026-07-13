@@ -1,3 +1,12 @@
+"""Grape-vine growth-stage phenology, driven by growing degree days (GDD).
+
+Converts a season's daily weather into a per-day (cumulative GDD, stage)
+series using a fixed GDD-threshold ladder, scaled per variety by
+`variety_factor`. The water balance, forecast, scenario, season-bank, and
+scoring modules all key off the stage this module assigns, to pick the right
+Kc curve and target depletion band for a given day.
+"""
+
 from __future__ import annotations
 
 from datetime import date
@@ -16,8 +25,13 @@ STAGE_THRESHOLDS: list[tuple[str, float]] = [
     ("harvest", 1600.0),
 ]
 
+# Days after the harvest GDD threshold is first reached before the vine is
+# considered post-harvest (canopy senescing, irrigation demand tapering off).
 POST_HARVEST_AFTER_DAYS = 30
 
+# Multiplier applied to STAGE_THRESHOLDS per variety: >1 delays stage entry
+# (later-ripening, e.g. Cabernet Sauvignon), <1 pulls it forward (early-ripening,
+# e.g. Sauvignon Blanc). Unlisted varieties default to neutral (see variety_factor).
 VARIETY_FACTORS: dict[str, float] = {
     "Sauvignon Blanc": 0.90,
     "Chardonnay": 0.95,
@@ -32,14 +46,19 @@ STAGE_ORDER = ["dormant", "budbreak", "flowering", "fruit_set", "veraison", "har
 
 
 def variety_factor(variety: str) -> float:
+    """Dimensionless GDD-threshold multiplier for `variety`; 1.0 (neutral) if unlisted."""
     return VARIETY_FACTORS.get(variety, 1.0)
 
 
 def gdd_increment(w: DailyWeather) -> float:
+    """One day's heat-unit contribution: mean temp above the 10 °C base, floored
+    at 0 so a cold day adds no heat units rather than subtracting any."""
     return max(0.0, (w.tmax + w.tmin) / 2 - GDD_BASE)
 
 
 def _base_stage(cum_gdd: float, factor: float) -> str:
+    # STAGE_THRESHOLDS is ascending and cum_gdd only grows day over day, so the
+    # stage is simply the last threshold cleared; stop at the first one not met.
     stage = "dormant"
     for name, threshold in STAGE_THRESHOLDS:
         if cum_gdd >= threshold * factor:

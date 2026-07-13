@@ -1,3 +1,8 @@
+/**
+ * Shared placeholder states (loading, error, empty) used across every screen
+ * so a block/panel/list waiting on data, failing to load, or genuinely empty
+ * always looks and behaves the same way.
+ */
 import type { ReactNode } from 'react';
 
 export function Spinner({ className = '' }: { className?: string }) {

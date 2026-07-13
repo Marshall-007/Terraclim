@@ -1,3 +1,11 @@
+"""Forward water-balance projection: "what happens if we do nothing."
+
+Given today's depletion/GDD state and a forward weather series, rolls the
+FAO-56 balance ahead with zero irrigation so the API can show a multi-day
+forecast panel, derive the forward-looking half of the urgency score, and
+(fed a perturbed weather series from `scenario.py`) answer "what if" questions.
+"""
+
 from __future__ import annotations
 
 from datetime import date
@@ -7,8 +15,11 @@ from .phenology import gdd_increment, stage_after
 from .scoring import band_for, deviation_status
 from .water_balance import clamp, effective_rain, kc_for, stress_coefficient
 
+# Mirrors phenology.STAGE_THRESHOLDS's "harvest" entry (1600 GDD). Kept as a
+# standalone constant to avoid importing the whole stage table for one number;
+# if the harvest threshold ever changes there, it must change here too.
 HARVEST_GDD = 1600.0
-DEFAULT_HORIZON = 7
+DEFAULT_HORIZON = 7  # look-ahead window, in days, for the forecast score component
 
 
 def project_forward(
@@ -24,7 +35,10 @@ def project_forward(
 ) -> list[dict]:
     """Roll the water balance forward with no irrigation, tracking stage drift.
 
-    Returns per-day projected records shaped for the timeseries `forecast` array.
+    Starts from today's actual depletion/GDD and simulates each day of
+    `forward_weather`, so the API can show how many days remain before the block
+    drifts out of its target band if nothing is done. Returns per-day projected
+    records shaped for the timeseries `forecast` array.
     """
     depletion_p = depletion
     gdd = cum_gdd
@@ -57,6 +71,12 @@ def project_forward(
 
 
 def projected_deviation(forecast: list[dict], horizon: int = DEFAULT_HORIZON) -> float:
+    """Signed band deviation at a single point `horizon` days out.
+
+    Feeds the forward-looking half of the urgency score (see
+    scoring.score_value): a block that is on-track today but drifting should
+    still raise urgency before it is actually out of band.
+    """
     if not forecast:
         return 0.0
     idx = min(horizon, len(forecast)) - 1
@@ -68,7 +88,11 @@ def projected_deviation(forecast: list[dict], horizon: int = DEFAULT_HORIZON) ->
 
 
 def hold_days_from_forecast(forecast: list[dict], current_lo: float) -> int | None:
-    """Days until projected depletion (no irrigation) climbs back to the band floor."""
+    """Days until projected depletion (no irrigation) climbs back to the band floor.
+
+    Only meaningful when the block is currently too wet; tells the grower how
+    long to hold irrigation before the next check-in.
+    """
     for i, entry in enumerate(forecast, start=1):
         if entry["depletion_fraction_projected"] >= current_lo:
             return i

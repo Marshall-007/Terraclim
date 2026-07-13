@@ -65,8 +65,8 @@ function ValidationTooltip({ active, payload, label }: any) {
 
 /**
  * Model stress vs field truth on one MPa axis: modelled MSWP as the bordeaux
- * line, the reference series (WaPOR/FruitLook) as a dashed slate line —
- * dash + legend so identity never rests on the hue pair alone — and pressure
+ * line, the reference series (WaPOR/FruitLook) as a dashed slate line
+ * (dash + legend so identity never rests on the hue pair alone), and pressure
  * bomb readings as point marks with ≥8px hover targets.
  */
 export function ValidationChart({

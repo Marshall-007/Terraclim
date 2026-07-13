@@ -1,3 +1,14 @@
+"""Core data access and orchestration layer for the Vino backend.
+
+Loads vineyard block geometry and reference data (Kc curves, stress-target
+bands, the MSWP map), persists the small JSON-file "stores" the app writes to
+at runtime (irrigation log, user-traced blocks, validation readings, field
+photos), and hosts `evaluate_block`/`evaluate_all`: the single place that
+turns a block plus weather into the full water-balance response every route
+and the insight engine build on. Route handlers should generally go through
+this module rather than touching the engine or the data files directly, so
+there is one source of truth for how a block's state is computed.
+"""
 from __future__ import annotations
 
 import json
@@ -23,6 +34,8 @@ HARVEST_GDD = 1600.0
 
 @dataclass
 class Block:
+    """A single vineyard parcel: its identity, wine style, irrigation hardware,
+    and the geometry used to locate weather/satellite data against it."""
     id: str
     name: str
     variety: str
@@ -41,6 +54,9 @@ class Block:
 
 @dataclass
 class Evaluation:
+    """The full result of evaluating one block as of one date: its historical
+    water-balance days, the forward projection, and the JSON-ready response
+    dict served by the API (status, score, drivers, pour slip, etc.)."""
     block: Block
     as_of: date
     balance: list[BalanceDay]
@@ -49,10 +65,14 @@ class Evaluation:
 
 
 def _load_json(name: str):
+    """Read and parse one file from app/data/ by name."""
     return json.loads((DATA_DIR / name).read_text())
 
 
 def centroid(geometry: dict) -> tuple[float, float]:
+    """Unweighted (lon, lat) average of a polygon's vertices, used as the point
+    sampled for weather/satellite data. Drops the closing repeated vertex, if
+    present, so it isn't double-counted in the average."""
     ring = geometry["coordinates"][0]
     pts = ring[:-1] if len(ring) > 1 and ring[0] == ring[-1] else ring
     lon = sum(p[0] for p in pts) / len(pts)
@@ -61,6 +81,8 @@ def centroid(geometry: dict) -> tuple[float, float]:
 
 
 def _feature_to_block(feat: dict) -> Block:
+    """Convert one GeoJSON feature (fixture or user-traced) into a Block,
+    defaulting taw_mm to 120 mm when a block's properties omit it."""
     p = feat["properties"]
     lon, lat = centroid(feat["geometry"])
     return Block(
@@ -72,6 +94,7 @@ def _feature_to_block(feat: dict) -> Block:
 
 
 def load_blocks() -> list[Block]:
+    """All blocks on the farm: bundled demo fixtures plus any user-traced ones."""
     features = blocks_geojson()["features"]
     return [_feature_to_block(feat) for feat in features]
 
@@ -85,14 +108,18 @@ def blocks_geojson() -> dict:
 
 
 def kc_curves() -> dict:
+    """FAO-56 crop-coefficient (Kc) curves per growth stage, from data/kc_curves.json."""
     return _load_json("kc_curves.json")
 
 
 def stress_targets() -> dict:
+    """Target depletion-fraction bands per growth stage and wine style, i.e. the
+    glide path, from data/stress_targets.json."""
     return _load_json("stress_targets.json")
 
 
 def mswp_map() -> dict:
+    """Depletion-fraction -> MSWP (MPa) interpolation anchors, from data/mswp_map.json."""
     return _load_json("mswp_map.json")
 
 
@@ -108,6 +135,9 @@ _LOG_PATH = DATA_DIR / "irrigation_log.json"
 
 
 def read_irrigation_log() -> list[dict]:
+    """All logged irrigation events (real applications plus the seeded demo
+    history). Missing or unparsable file reads as an empty log rather than
+    raising, since a fresh checkout has nothing logged yet."""
     try:
         return json.loads(_LOG_PATH.read_text())
     except (ValueError, OSError):
@@ -115,12 +145,15 @@ def read_irrigation_log() -> list[dict]:
 
 
 def append_irrigation(event: dict) -> None:
+    """Persist one irrigation event to the log (append-only; never mutates history)."""
     log_rows = read_irrigation_log()
     log_rows.append(event)
     _LOG_PATH.write_text(json.dumps(log_rows, indent=2))
 
 
 def irrigation_for_block(block_id: str) -> dict[date, float]:
+    """Total millimetres applied per date for one block, collapsing multiple
+    same-day log entries into a single total the water balance can consume."""
     out: dict[date, float] = {}
     for row in read_irrigation_log():
         if row.get("block_id") != block_id:
@@ -140,6 +173,9 @@ EARTH_RADIUS_M = 6_371_000.0
 
 
 def read_user_blocks() -> dict:
+    """User-traced blocks as a FeatureCollection. Falls back to an empty
+    collection on a missing file or any malformed content, so a corrupt store
+    never takes down block listing."""
     try:
         fc_json = json.loads(_USER_BLOCKS_PATH.read_text())
         if fc_json.get("type") == "FeatureCollection" and isinstance(fc_json.get("features"), list):
@@ -154,6 +190,7 @@ def write_user_blocks(fc_json: dict) -> None:
 
 
 def next_user_block_id() -> str:
+    """Smallest unused "U<n>" id, so user-traced blocks get stable, human-readable ids."""
     existing = {f["properties"].get("id", "") for f in read_user_blocks()["features"]}
     n = 1
     while f"U{n}" in existing:
@@ -163,7 +200,9 @@ def next_user_block_id() -> str:
 
 def polygon_area_ha(geometry: dict) -> float:
     """Spherical-approximation planar area of a lon/lat polygon ring, in hectares.
-    Equirectangular projection about the ring centroid — accurate at parcel scale."""
+    Uses an equirectangular projection about the ring centroid, accurate at
+    parcel scale (the longitude scale factor cos(lat0) is evaluated once at the
+    centroid rather than per vertex, which is fine over a few hectares)."""
     ring = geometry["coordinates"][0]
     pts = ring[:-1] if len(ring) > 1 and ring[0] == ring[-1] else ring
     if len(pts) < 3:
@@ -174,6 +213,7 @@ def polygon_area_ha(geometry: dict) -> float:
          math.radians(lat) * EARTH_RADIUS_M)
         for lon, lat in pts
     ]
+    # Shoelace formula for polygon area from the projected (x, y) vertices.
     area2 = 0.0
     for (x0, y0), (x1, y1) in zip(xy, xy[1:] + xy[:1]):
         area2 += x0 * y1 - x1 * y0
@@ -186,6 +226,8 @@ _VALIDATION_PATH = DATA_DIR / "validation_readings.json"
 
 
 def read_validation_readings() -> list[dict]:
+    """Logged ground-truth readings (e.g. pressure-bomb MSWP) used to check the
+    model against reality. Empty list if the store is missing or unreadable."""
     try:
         return json.loads(_VALIDATION_PATH.read_text())
     except (ValueError, OSError):
@@ -209,6 +251,7 @@ _PHOTO_INDEX = PHOTOS_DIR / "index.json"
 
 
 def read_photo_index() -> list[dict]:
+    """Metadata for every stored field photo (block, date, analysis result)."""
     try:
         return json.loads(_PHOTO_INDEX.read_text())
     except (ValueError, OSError):
@@ -234,6 +277,7 @@ def store_photo(photo_id: str, jpeg_bytes: bytes, meta: dict) -> dict:
 
 
 def photos_for_block(block_id: str) -> list[dict]:
+    """Photos for one block, most recently taken first."""
     rows = [r for r in read_photo_index() if r.get("block_id") == block_id]
     rows.sort(key=lambda r: r.get("created_at", ""), reverse=True)
     return rows
@@ -248,6 +292,7 @@ def photo_record(photo_id: str) -> dict | None:
 
 
 def photo_path(record: dict) -> Path:
+    """Filesystem path for a stored photo's JPEG bytes."""
     return PHOTOS_DIR / record["filename"]
 
 
@@ -306,6 +351,19 @@ def evaluate_block(
     extra_irrigation: dict[date, float] | None = None,
     forward_override: list[DailyWeather] | None = None,
 ) -> Evaluation:
+    """Compute one block's full water-balance state as of `as_of`: run the
+    season-to-date balance, score today's status, project forward, and shape
+    the JSON-ready response (drivers, MSWP estimate, pour slip, recommendation).
+
+    This is the single entry point nearly everything else in the app calls
+    through (routes, the insight engine, backtest, scenarios), so behaviour
+    changes here ripple everywhere.
+
+    `extra_irrigation` and `forward_override` exist for what-if callers
+    (scenario deltas, backtest replays): they let the caller layer hypothetical
+    irrigation or substitute a hypothetical forecast onto the real history
+    without mutating the on-disk irrigation log or the live provider.
+    """
     factor = ph.variety_factor(block.variety)
     ss = season_start(as_of)
 
@@ -316,6 +374,8 @@ def evaluate_block(
 
     irr = irrigation_for_block(block.id)
     if extra_irrigation:
+        # Merge rather than replace, so a what-if scenario adds to the real
+        # logged history instead of erasing it.
         for d, mm in extra_irrigation.items():
             irr[d] = irr.get(d, 0.0) + mm
 
@@ -328,6 +388,8 @@ def evaluate_block(
     lo, hi = scoring.band_for(targets, stage, block.wine_style)
     deviation, status = scoring.deviation_status(f, lo, hi)
 
+    # forward_override lets a scenario/backtest caller substitute a perturbed or
+    # historical forecast; normal callers fetch the provider's real forecast.
     forward = forward_override if forward_override is not None else forward_weather(
         provider, block.lat, block.lon, as_of, forward_days
     )
@@ -338,6 +400,8 @@ def evaluate_block(
     score = scoring.score_value(deviation, dev7)
     traffic = scoring.traffic_for(score)
 
+    # Driver "pressure" readings are trailing 7-day averages/sums, matching the
+    # window the glossary and insight copy describe to growers.
     last7 = history[-7:] if len(history) >= 7 else history
     et0_7d = sum(w.et0 for w in last7) / len(last7) if last7 else 0.0
     rain_7d = sum(w.rain for w in last7)
@@ -346,12 +410,16 @@ def evaluate_block(
     drivers = scoring.build_drivers(et0_7d, rain_7d, tmax_7d, forecast_rain_3d)
     drivers.extend(scoring.build_measured_drivers(*_measured_channels(balance)))
 
+    # Only a too-wet block needs a "days until it drinks itself back in band"
+    # estimate; a too-dry or on-track block doesn't hold water on purpose.
     hold_days = fc.hold_days_from_forecast(forecast, lo) if status == "too_wet" else None
     pour_slip = scoring.build_pour_slip(
         status, depletion_mm, block.taw_mm, lo, hi, block.application_rate_mm_h, as_of, hold_days
     )
     rec = scoring.recommendation(status, stage, pour_slip, deviation)
 
+    # Translate the modelled depletion fraction onto the MSWP (pressure-bomb) scale
+    # so growers can cross-check the model against a physical reading they trust.
     mmap = mswp_map()
     response = {
         "block_id": block.id,
@@ -392,6 +460,8 @@ def _measured_channels(balance: list[BalanceDay]):
 
 
 def evaluate_all(as_of: date, provider, targets=None, kc=None) -> list[Evaluation]:
+    """Evaluate every block on the farm as of the same date, loading the shared
+    reference data once rather than per block."""
     targets = targets or stress_targets()
     kc = kc or kc_curves()
     return [evaluate_block(b, as_of, provider, targets, kc) for b in load_blocks()]

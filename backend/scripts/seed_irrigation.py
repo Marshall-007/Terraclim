@@ -27,7 +27,7 @@ AS_OF = date(2026, 1, 20)
 # Days since each block's last routine irrigation (a real farm rotates blocks, so
 # they drift to different points on the glide path). Larger gap -> drier at as_of.
 # B4 (Windberg Pinotage, variety factor 1.0) carries the longest gap so it reads as
-# the top too-dry block on the demo date — the contract's worked example.
+# the top too-dry block on the demo date: the contract's worked example.
 STOP_BUFFER_DAYS = {"B2": 4, "B3": 3, "B4": 10, "B5": 2, "B6": 3, "B7": 4}
 DEFAULT_BUFFER = 3
 IRRIGATION_INTERVAL = 3       # drip runs on a cadence, not daily
@@ -48,6 +48,8 @@ for block in load_blocks():
     taw = block.taw_mm
     stop_date = AS_OF - timedelta(days=STOP_BUFFER_DAYS.get(block.id, DEFAULT_BUFFER))
 
+    # Start the season at a modest 30% depletion (roughly mid-band) rather than
+    # full, so early dormant/budbreak days don't read as artificially stressed.
     D = 0.30 * taw
     for w in history:
         stage = stage_by_date[w.date]

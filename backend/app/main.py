@@ -1,3 +1,8 @@
+"""FastAPI application entrypoint for the Vino backend.
+
+Builds the FastAPI app, wires in permissive dev CORS, and mounts every route
+module under app.routes. Run with an ASGI server, e.g. `uvicorn app.main:app`.
+"""
 from __future__ import annotations
 
 import logging
@@ -26,7 +31,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 app = FastAPI(
     title="Vino API",
     version="2.0",
-    description="Vineyard irrigation intelligence — the Stress Glide Path engine.",
+    description="Vineyard irrigation intelligence: the Stress Glide Path engine.",
 )
 
 # Dev CORS: allow all origins so the Vite frontend can call from any port.
@@ -45,4 +50,5 @@ for module in (health, blocks, battle_plan, season_bank, scenario, backtest, bri
 
 @app.get("/")
 def root():
+    """Unauthenticated landing route pointing callers at the docs and health check."""
     return {"name": "Vino API", "docs": "/docs", "health": "/api/health"}

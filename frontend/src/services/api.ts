@@ -121,6 +121,12 @@ function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   return request;
 }
 
+/**
+ * Runs `live()`; on any failure (network error, timeout, non-2xx) it swallows
+ * the error, flips the app into demo mode, and resolves with `fallback()`
+ * instead. Every endpoint below is built on this so the whole app degrades to
+ * mock data instead of showing broken screens when the backend is down.
+ */
 async function served<T>(live: () => Promise<T>, fallback: () => T): Promise<T> {
   try {
     const data = await live();
@@ -277,10 +283,10 @@ export const api = {
 };
 
 /**
- * Multipart photo upload with real progress (XMLHttpRequest — fetch cannot
- * observe upload progress). Falls back to the mock analysis pipeline when the
- * backend is unreachable, replaying staged progress so the UI behaves the same
- * in demo mode.
+ * Multipart photo upload with real progress (XMLHttpRequest, since fetch
+ * cannot observe upload progress). Falls back to the mock analysis pipeline
+ * when the backend is unreachable, replaying staged progress so the UI
+ * behaves the same in demo mode.
  */
 export function uploadPhoto(
   blockId: string,

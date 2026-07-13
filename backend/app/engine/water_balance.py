@@ -1,3 +1,12 @@
+"""FAO-56 daily soil water balance for a single vineyard block.
+
+Implements the standard single-crop-coefficient bucket model: root-zone
+depletion (mm) is updated day by day from crop ET, effective rain, and
+irrigation, with a stress-coefficient (Ks) extension so modelled ET slows
+once the tank gets low. `phenology.py` supplies the growth stage that selects
+Kc; this module is otherwise stage-agnostic.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,6 +30,8 @@ def clamp(value: float, lo: float, hi: float) -> float:
 
 
 def kc_for(kc_curves: dict, stage: str) -> float:
+    # 0.15 is a bare/dormant-vine Kc fallback, used only if the curve set has no
+    # entry at all for the stage or for "dormant".
     return kc_curves.get(stage, kc_curves.get("dormant", 0.15))
 
 
@@ -42,13 +53,16 @@ def effective_rain(rain: float) -> float:
 
 @dataclass
 class BalanceDay:
+    """One day's water-balance state for a block, as returned to the API layer
+    and consumed by the forecast/backtest modules."""
+
     date: date
-    et0: float
+    et0: float                       # mm, reference (FAO-56) evapotranspiration
     etc: float                       # modelled crop ET, adjusted for stress (ET0 x Kc x Ks)
-    rain: float
+    rain: float                      # mm
     irrigation_mm: float
     depletion_mm: float
-    depletion_fraction: float
+    depletion_fraction: float        # depletion_mm / TAW, in [0, 1]
     stage: str
     etc_potential: float = 0.0       # unstressed crop demand (ET0 x Kc), for ETa divergence
     eta: float | None = None         # measured actual ET, when the source provides it
@@ -80,6 +94,9 @@ def compute_balance(
         ks = stress_coefficient(depletion, taw)
         etc_potential = w.et0 * kc          # unstressed crop demand (ET0 x Kc)
         etc = etc_potential * ks            # stress-adjusted actual model ET
+        # Measured ETa (when the provider supplies it) drives the balance directly;
+        # etc/etc_potential are still recorded on BalanceDay for the transpiration-
+        # deficit driver (measured vs. modelled divergence) even when eta is used.
         consumed = w.eta if w.eta is not None else etc
         irr = irrigation_by_date.get(w.date, 0.0)
         depletion = clamp(depletion + consumed - effective_rain(w.rain) - irr, 0.0, taw)

@@ -1,4 +1,4 @@
-# Calibrated Constants — drop-in for the Vino backend
+# Calibrated Constants: drop-in for the Vino backend
 
 Proposed final values for `kc_curves`, `variety_factors`, `gdd_thresholds` and
 `stress_targets`. **Outcome of the validation (`viticulture_findings.md`): every current
@@ -7,13 +7,13 @@ this file is a *validated* set, not a rewrite. Each block notes source and a
 confidence tag: **[established]**, **[supported]**, **[assumption]** (defensible calibration).
 
 The engine already reads `kc_curves.json` and `stress_targets.json`. GDD thresholds and
-variety factors are **not yet externalised** — recommend adding `phenology.json` and
+variety factors are **not yet externalised**. We recommend adding `phenology.json` and
 `variety_factors.json` so all four live in `backend/app/data/` and stay auditable (the engine
 should read, never hardcode). JSON below is ready to paste.
 
 ---
 
-## 1. `kc_curves.json` — Kc by stage  **(unchanged — validated)**
+## 1. `kc_curves.json`: Kc by stage  **(unchanged, validated)**
 
 ```json
 {
@@ -34,12 +34,12 @@ should read, never hardcode). JSON below is ready to paste.
 - Peak deliberately **0.70** (FAO wine-grape mid), not 0.80 (WSU fully-irrigated full canopy):
   correct for a clean-cultivated, drip/RDI vineyard at ~40–50 % cover. **[established choice]**
 - *Optional, not required:* flowering→0.50, fruit_set→0.65 to reach the mid-season plateau
-  slightly sooner (closer to FAO's flat Kc-mid). Current values are internally consistent —
-  ship as-is.
+  slightly sooner (closer to FAO's flat Kc-mid). Current values are internally consistent.
+  Ship as-is.
 
 ---
 
-## 2. `variety_factors.json` — GDD-threshold multipliers  **(unchanged — validated ordering)**
+## 2. `variety_factors.json`: GDD-threshold multipliers  **(unchanged, validated ordering)**
 
 ```json
 {
@@ -53,8 +53,8 @@ should read, never hardcode). JSON below is ready to paste.
 }
 ```
 
-- Ranks every variety in its correct ripening class — early (SB, Chardonnay) < mid (Chenin,
-  Merlot, Pinotage) < late (Shiraz, **Cabernet latest**) — consistent with Cape harvest timing
+- Ranks every variety in its correct ripening class: early (SB, Chardonnay) < mid (Chenin,
+  Merlot, Pinotage) < late (Shiraz, **Cabernet latest**), consistent with Cape harvest timing
   (whites late-Jan/Feb; Cabernet Mar–Apr). **[supported]**
 - Exact multipliers are a **variety heat-demand index** we calibrated; they are *defensible
   assumptions*, not a published table. Pitch them as such. **[assumption]**
@@ -64,7 +64,7 @@ should read, never hardcode). JSON below is ready to paste.
 
 ---
 
-## 3. `phenology.json` — GDD stage thresholds  **(unchanged — validated)**
+## 3. `phenology.json`: GDD stage thresholds  **(unchanged, validated)**
 
 Base values (base 10 °C, cumulative from 1 Sep), before variety scaling:
 
@@ -86,15 +86,15 @@ Base values (base 10 °C, cumulative from 1 Sep), before variety scaling:
 
 - budbreak 100 / flowering 400 / veraison 1150 sit inside published base-10 cumulative-GDD
   ranges (50–100 / 345–450 / 1100–1300). **[supported]**
-- fruit_set 500 = bloom + ~1 week; post_harvest = harvest + 30 d. **[assumption — sound spacing]**
+- fruit_set 500 = bloom + ~1 week; post_harvest = harvest + 30 d. **[assumption: sound spacing]**
 - harvest 1600 (base) → after variety scaling spans ~1440–1840 GDD, the realistic Stellenbosch
-  Region IV window. **[assumption — moderate-climate base; honest range 1500–1700]**
+  Region IV window. **[assumption: moderate-climate base; honest range 1500–1700]**
 - *Optional engine refinement (not a constant):* cap daily mean at 30 °C before subtracting
   base, so Cape heatwaves don't over-accumulate GDD (standard WSU/UC practice).
 
 ---
 
-## 4. `stress_targets.json` — Stress Glide Path depletion bands `[lo, hi]`  **(unchanged — validated)**
+## 4. `stress_targets.json`: Stress Glide Path depletion bands `[lo, hi]`  **(unchanged, validated)**
 
 ```json
 {
@@ -111,28 +111,28 @@ Base values (base 10 °C, cumulative from 1 Sep), before variety scaling:
 **Why these are defensible:**
 - Anchored on **FAO-56 p = 0.45** (grapes-wine) = the depletion fraction at which stress onset
   begins. So `f < 0.45` = comfortable, `f ≥ 0.45` = deliberate RDI deficit. **[established anchor]**
-- `fruit_set` pushes reds *past* p (premium_red 0.45–0.65) — the RDI "money window" that limits
+- `fruit_set` pushes reds *past* p (premium_red 0.45–0.65): the RDI "money window" that limits
   berry size and vigour and concentrates colour/tannin; whites kept gentler (0.25–0.50) to
   protect aromatics/acidity. This graduation is exactly the published prescription. **[supported]**
 - Slight easing at veraison vs fruit_set encodes "pre-veraison deficit matters most"
   (Matthews & Anderson 1988). **[supported]**
 - Exact band edges are our **MPa→depletion-fraction translation** (no universal conversion
-  exists) — a defensible engineering calibration, not a copied table. **[assumption]**
+  exists), a defensible engineering calibration, not a copied table. **[assumption]**
 
 **Do not change for the demo.** The style ordering and stage timing are the scientifically
 load-bearing parts and they are correct.
 
 ---
 
-## 5. TAW & seeding  **(unchanged — validated)**
+## 5. TAW & seeding  **(unchanged, validated)**
 
-- `taw_mm = 120` default per block — sound for a ~1 m effective root zone on Stellenbosch
+- `taw_mm = 120` default per block, sound for a ~1 m effective root zone on Stellenbosch
   sandy-loam (AWC ~100–140 mm/m). **[supported]**
 - **Per-block override is the right design.** Suggested documented ranges for `taw_mm`:
   shallow sandy 60–90 · sandy-loam/loam 110–150 · clay/clay-loam 150–200. **[supported]**
 - Seed `D = 0.3 × TAW` on 1 Sep: defensible; because the Cape is winter-rainfall, `0.1–0.2 × TAW`
   is marginally more realistic (soils near field capacity post-winter), but 0.3 is a safe neutral
-  start that self-corrects. **[assumption — keep for demo]**
+  start that self-corrects. **[assumption: keep for demo]**
 
 ---
 
@@ -148,5 +148,5 @@ load-bearing parts and they are correct.
 
 **Honest-precision statement for the pitch:** "Our phenology and Kc anchors are FAO-56 and
 university-extension standard values; our variety factors and stress bands are transparent,
-literature-grounded calibrations — we mark which numbers are established and which are defensible
+literature-grounded calibrations. We mark which numbers are established and which are defensible
 assumptions rather than inventing false precision."

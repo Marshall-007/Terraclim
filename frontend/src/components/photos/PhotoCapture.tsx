@@ -5,6 +5,9 @@ import { Icon } from '../layout/icons';
 import { Spinner } from '../common/states';
 import { color } from '../../theme/tokens';
 
+// State machine: idle (no file) → ready (previewing, editable note) →
+// uploading (progress bar, inputs locked) → error (retry) or back to idle
+// via reset() once the upload resolves and the parent has the new photo.
 type Phase = 'idle' | 'ready' | 'uploading' | 'error';
 
 /**
@@ -90,7 +93,7 @@ export function PhotoCapture({
           />
           <input
             className="field"
-            placeholder="Note (optional) — row, vine, what you see"
+            placeholder="Note (optional): row, vine, what you see"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             disabled={phase === 'uploading'}
@@ -115,7 +118,7 @@ export function PhotoCapture({
 
           {phase === 'error' && (
             <p className="text-xs text-critical">
-              Upload failed — check the connection and try again.
+              Upload failed. Check the connection and try again.
             </p>
           )}
 

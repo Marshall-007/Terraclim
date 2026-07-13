@@ -1,3 +1,12 @@
+"""Battle plan: the day-by-day irrigation schedule that allocates a limited
+daily pump-hours budget across every block that needs water.
+
+Each day, blocks still short of their band midpoint are ranked by how far
+they've drifted too dry (weighted by growth stage and wine value) and given
+hours in that order until the day's budget runs out. Blocks that are already
+too wet, or that have enough rain coming to close their deficit on their own,
+are skipped entirely rather than competing for hours.
+"""
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -12,6 +21,9 @@ MEANINGFUL_RAIN_MM = 5.0
 
 
 def _days_to_rain(forecast: list[dict]) -> int:
+    """Number of days until the forecast shows a meaningful rain day (>= 5 mm),
+    or the full forecast length if none is coming; used only for the entry's
+    human-readable reason string."""
     for i, e in enumerate(forecast, start=1):
         if e["rain"] >= MEANINGFUL_RAIN_MM:
             return i
@@ -19,6 +31,17 @@ def _days_to_rain(forecast: list[dict]) -> int:
 
 
 def build_plan(evaluations: list, available_hours_per_day: float, horizon_days: int, as_of: date) -> dict:
+    """Greedy, re-ranked-daily irrigation scheduler over `horizon_days`.
+
+    Blocks are simulated forward day by day: each day, whichever eligible
+    blocks are still above their band midpoint are ranked by priority and
+    given hours (draining a simulated depletion state) until the day's hour
+    budget is exhausted, then every eligible block's simulated depletion
+    advances one day using its own forecast ETc/rain before the next day's
+    ranking runs. Re-ranking daily (rather than committing to a fixed order
+    up front) lets a block that gets fully watered on day 1 drop out of
+    contention on day 2, freeing hours for the next-most-urgent block.
+    """
     blocks = []
     for ev in evaluations:
         r = ev.response
@@ -49,7 +72,7 @@ def build_plan(evaluations: list, available_hours_per_day: float, horizon_days: 
         mid = (b["lo"] + b["hi"]) / 2
         if b["status"] == "too_wet":
             skipped.append({"block_id": b["id"],
-                            "reason": "Currently too wet — irrigation would push it further off path."})
+                            "reason": "Currently too wet: irrigation would push it further off path."})
             continue
         if b["rain48"] >= RAIN_SKIP_MM_48H:
             needed = max(0.0, b["D"] - mid * b["taw"])
@@ -77,6 +100,9 @@ def build_plan(evaluations: list, available_hours_per_day: float, horizon_days: 
             mid = (b["lo"] + b["hi"]) / 2
             if D <= mid * b["taw"] + 1e-9:
                 continue
+            # Priority = how far past the dry edge of the band, scaled up for
+            # quality-critical stages and higher-value wine styles, so scarce
+            # hours go where they move the wine the most, not just wherever is driest.
             too_dry_dev = max(0.0, D / b["taw"] - b["hi"])
             priority = too_dry_dev * STAGE_SENSITIVITY.get(b["stage"], 1.0) * STYLE_WEIGHT.get(b["style"], 1.0)
             if priority > 0:
@@ -107,6 +133,9 @@ def build_plan(evaluations: list, available_hours_per_day: float, horizon_days: 
                 }
             )
 
+        # Advance every eligible block's simulated depletion by one day (crop
+        # use adds, rain subtracts, clamped to the tank) ahead of tomorrow's
+        # ranking, so later days react to blocks drying out or catching rain.
         next_day = as_of + timedelta(days=i + 1)
         for b in eligible:
             e = b["fmap"].get(next_day)

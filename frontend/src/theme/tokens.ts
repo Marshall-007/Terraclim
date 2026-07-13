@@ -1,5 +1,5 @@
 /**
- * Vino design tokens — the single source of truth for every design value.
+ * Vino design tokens: the single source of truth for every design value.
  * Tailwind (tailwind.config.ts) and the app both read from here, so the team
  * can re-skin the product by editing this one file.
  *
@@ -8,7 +8,7 @@
  * lights run green → amber → orange → red. The `wet` blue is reserved for the
  * "you are over-watering" signal and never used for anything else.
  *
- * Keep this module pure data (no imports, no browser APIs) — Tailwind loads it
+ * Keep this module pure data (no imports, no browser APIs). Tailwind loads it
  * in Node at build time.
  */
 
@@ -23,13 +23,13 @@ export const color = {
   line: '#e4ded3',
   lineStrong: '#d3cabb',
 
-  // Bordeaux — the brand
+  // Bordeaux: the brand
   bordeaux: '#6b2436',
   bordeauxDark: '#4e1926',
   bordeauxSoft: '#8a3a4c',
   bordeauxTint: '#f1e2e5',
 
-  // Slate — cool structural secondary
+  // Slate: cool structural secondary
   slate: '#33404a',
   slateSoft: '#5a6b78',
   slateTint: '#e8ecef',
@@ -51,7 +51,7 @@ export const color = {
   highTint: '#f7e6da',
   criticalTint: '#f3ddda',
 
-  // The over-watering signal — cool water blue, reserved for too_wet
+  // The over-watering signal: cool water blue, reserved for too_wet
   wet: '#2f6f9f',
   wetSoft: '#5a93bd',
   wetTint: '#e2edf4',
@@ -67,7 +67,7 @@ export const font = {
   mono: 'ui-monospace, "SFMono-Regular", "Roboto Mono", "Menlo", monospace',
 } as const;
 
-/** 4px base spacing unit — the whole layout is a multiple of this. */
+/** 4px base spacing unit: the whole layout is a multiple of this. */
 export const spaceUnit = 4;
 
 export const radius = {

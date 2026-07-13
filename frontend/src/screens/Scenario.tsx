@@ -9,6 +9,13 @@ import { Explainable } from '../insight/Explainable';
 import { Icon, type IconName } from '../components/layout/icons';
 import { color } from '../theme/tokens';
 
+/**
+ * "What-if" stress test screen: picks a scenario (heatwave, drought, rain
+ * event, cool spell) and a day window, sends it to the engine, and re-ranks
+ * every block by the resulting score so growers can see which blocks would
+ * jump in priority under that forcing.
+ */
+
 const SCENARIOS: {
   type: ScenarioType;
   label: string;

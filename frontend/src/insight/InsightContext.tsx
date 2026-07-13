@@ -2,7 +2,7 @@
  * Global AI-Insight state (v2 §H). Any element wrapped in <Explainable> calls
  * openInsight(); the provider fetches the explanation and renders the shared
  * panel (right slide-in on desktop, bottom sheet on mobile). The state machine
- * is loading → loaded | error — an error shows a retry card, never crashes.
+ * is loading → loaded | error. An error shows a retry card, never crashes.
  */
 
 import {

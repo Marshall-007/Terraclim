@@ -53,7 +53,7 @@ function EtTooltip({ active, payload, label }: any) {
 
 /**
  * The brief-core ET panel: modelled reference ETo and measured ETa as one
- * measure in two epistemic states — same hue, dashed vs solid — exactly the
+ * measure in two epistemic states (same hue, dashed vs solid), exactly the
  * treatment GlidePathChart uses for measured vs forecast. One y-axis (mm/day);
  * Kc and NDVI ride along in the tooltip so the per-day checklist is complete.
  */
@@ -134,7 +134,7 @@ export function EtChart({
         </div>
       ) : (
         <p className="mt-2 text-xs text-ink-muted">
-          ETo (modelled reference) — measured ETa appears once an ETa source is active.
+          ETo (modelled reference). Measured ETa appears once an ETa source is active.
         </p>
       )}
     </div>
