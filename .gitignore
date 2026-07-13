@@ -27,7 +27,7 @@ backend/app/data/cache/*
 !backend/app/data/cache/.gitkeep
 backend/app/data/settings.json
 
-# TerraClim ET-GEO data pack — confidential per hackathon IP notice, never commit
+# TerraClim ET-GEO data pack, confidential per hackathon IP notice, never commit
 backend/app/data/datapack/
 datapack/
 *.tif
@@ -42,10 +42,10 @@ Thumbs.db
 *.swp
 *.tsbuildinfo
 
-# Field photo uploads — never commit user images
+# Field photo uploads, never commit user images
 backend/app/data/photos/*
 !backend/app/data/photos/.gitkeep
 
-# Runtime-generated block/validation data — user content, keep out of git
+# Runtime-generated block/validation data, user content, keep out of git
 backend/app/data/user_blocks.geojson
 backend/app/data/validation_readings.json
