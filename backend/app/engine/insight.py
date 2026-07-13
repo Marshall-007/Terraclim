@@ -1,3 +1,13 @@
+"""Deterministic insight engine: every subject a user can click through gets a
+headline, 2-4 sentences of grower language, the facts it rests on (with
+units), and honest caveats.
+
+Facts are always read from live engine state (the same calls the routes
+make), never restated from a cached response, so an insight can never drift
+out of sync with a block's actual current status. An optional AI layer (see
+ai_rephrase.py) may polish the prose afterward, but it is layered on outside
+this module and never touches, or is trusted to invent, the underlying facts.
+"""
 from __future__ import annotations
 
 import json
@@ -25,12 +35,6 @@ from .scenario import PERTURBATION_STORY, perturb_forward
 from .scoring import DEVIATION_FULL_SCALE, FORECAST_WEIGHT, NOW_WEIGHT
 from .season_bank import block_demand_totals, compute_bank
 
-# Deterministic insight engine: every subject a user can click gets a headline,
-# 2-4 sentences of grower language, the facts it rests on (with units), and honest
-# caveats. Facts are read from live engine state, the same calls the routes make,
-# never restated from a cached response. AI (if configured) only rephrases; it is
-# layered on outside this module.
-
 VALID_SUBJECTS = [
     "block_status", "score", "driver", "mswp", "glide_path", "pour_slip",
     "battle_plan_entry", "battle_plan_skip", "season_bank", "backtest_event",
@@ -41,6 +45,7 @@ SCENARIO_KINDS = ("heatwave", "drought", "rain_event", "cool_spell")
 
 
 class InsightError(Exception):
+    """Base class for insight-engine errors; the route layer maps subclasses to HTTP status codes."""
     pass
 
 
@@ -58,6 +63,9 @@ class SubjectNotFound(InsightError):
 
 # --- copy building blocks ---------------------------------------------------
 
+# One clause per growth stage explaining, in grower language, why water status
+# matters (or doesn't) right now. Interpolated into the "Right now ..." sentence
+# of the block_status explanation.
 STAGE_STORY = {
     "dormant": "the vines are resting with no leaves to feed, so water status barely touches the coming wine",
     "budbreak": "young shoots are building the canopy that must ripen the crop, and real stress now stunts the season before it starts",
@@ -97,6 +105,8 @@ FORECAST_CAVEAT = (
     "so the engine re-checks every day."
 )
 
+# Per-driver "what it is / why it matters / where it comes from" copy, used by
+# both the block_status driver callout and the standalone driver insight.
 DRIVER_STORY = {
     "et0_7d": {
         "what": "the drying power of the weather over the last week: how many millimetres of "
@@ -106,7 +116,7 @@ DRIVER_STORY = {
         "nature": "Weather-derived (FAO-56 calculation), not a field measurement.",
     },
     "eta_7d": {
-        "what": "what the vines and soil actually gave up over the last week, in plain terms, "
+        "what": "what the vines and soil actually gave up over the last week: in plain terms, "
                 "how much the vines are drinking each day",
         "why": "when it runs well below the weather's demand, the vines are throttling back "
                "because water is getting hard to reach",
@@ -162,6 +172,8 @@ HINT_MEANING = {
 # --- small helpers -----------------------------------------------------------
 
 def _num(x: float, nd: int = 1) -> str:
+    """Format a float to at most `nd` decimals, trimming trailing zeros (and a
+    trailing dot), so 12.0 reads as "12" and 12.50 reads as "12.5" in prose."""
     s = f"{float(x):.{nd}f}"
     if "." in s:
         s = s.rstrip("0").rstrip(".")
@@ -185,10 +197,14 @@ def _fact(label: str, value) -> dict:
 
 
 def _join(sentences: list[str]) -> str:
+    """Join sentence fragments with single spaces, silently dropping any blank
+    ones. Lets a builder pass an optional line unconditionally (e.g. a lever_line
+    that is "" when there is nothing extra to say) without an if/else at the call site."""
     return " ".join(s.strip() for s in sentences if s and s.strip())
 
 
 def _find_block(block_id: str | None, subject_type: str):
+    """Look up a block by id, or raise the 422/404 InsightError a missing/unknown id implies."""
     if not block_id:
         raise InvalidRequest(f"block_id is required for subject_type '{subject_type}'")
     block = next((b for b in load_blocks() if b.id == block_id), None)
@@ -202,6 +218,9 @@ def _evaluate(block, ctx: dict) -> Evaluation:
 
 
 def _top_driver(drivers: list[dict]) -> dict:
+    """The single driver to headline: the first "high" pressure driver, else the
+    first "medium", else just the first driver in the list (there is always at
+    least one). Used to name one biggest factor rather than list every driver."""
     for level in ("high", "medium"):
         for d in drivers:
             if d["pressure"] == level:
@@ -215,6 +234,11 @@ def _driver_reading(d: dict) -> str:
 
 
 def _ctx_int(ctx: dict, key: str, default: int, lo: int, hi: int) -> int:
+    """Read an optional integer out of the client-supplied `context` dict.
+    Wrong type raises InvalidRequest (422), but an in-range violation is
+    silently clamped rather than rejected, since these are UI conveniences
+    (plan horizon, scenario days) and clamping degrades more gracefully than
+    an error for a slightly-out-of-range slider value."""
     try:
         v = int(ctx.get(key, default))
     except (TypeError, ValueError):
@@ -223,6 +247,7 @@ def _ctx_int(ctx: dict, key: str, default: int, lo: int, hi: int) -> int:
 
 
 def _ctx_float(ctx: dict, key: str, default: float, lo: float, hi: float) -> float:
+    """Float counterpart of _ctx_int; same wrong-type-raises/out-of-range-clamps contract."""
     try:
         v = float(ctx.get(key, default))
     except (TypeError, ValueError):
@@ -231,14 +256,20 @@ def _ctx_float(ctx: dict, key: str, default: float, lo: float, hi: float) -> flo
 
 
 def load_glossary() -> dict:
+    """Load the grower-facing term glossary from app/data/glossary.json."""
     return json.loads((DATA_DIR / "glossary.json").read_text())
 
 
 def _normalize_term(raw: str) -> str:
+    """Lowercase and collapse to alphanumerics-plus-spaces, so a glossary lookup
+    matches regardless of case, punctuation, or hyphenation differences between
+    the caller's query and the stored term/aliases (e.g. "pressure-bomb" == "Pressure Bomb")."""
     return re.sub(r"[^a-z0-9]+", " ", raw.lower()).strip()
 
 
 def _status_phrase(status: str, deviation: float) -> str:
+    """Human phrase for how far outside its band a block sits, or "inside its
+    band" when on track. Shared by the block_status and glide_path facts."""
     if status == "too_dry":
         return f"{_pts(deviation)} points past the dry edge"
     if status == "too_wet":
@@ -249,6 +280,9 @@ def _status_phrase(status: str, deviation: float) -> str:
 # --- subject builders --------------------------------------------------------
 
 def _insight_block_status(block_id, subject_id, ctx):
+    """"Why does this block look the way it does right now?" The general-purpose
+    explanation for a block's current depletion status, headlined by its single
+    biggest pressure driver."""
     block = _find_block(block_id, "block_status")
     ev = _evaluate(block, ctx)
     r = ev.response
@@ -259,12 +293,12 @@ def _insight_block_status(block_id, subject_id, ctx):
     if r["status"] == "too_dry":
         headline = f"{block.name} is running too dry in {r['stage']}"
         state = (
-            f"That is {_pts(r['deviation'])} points past the dry edge, and {TOO_DRY_MEANS}."
+            f"That is {_pts(r['deviation'])} points past the dry edge: {TOO_DRY_MEANS}."
         )
     elif r["status"] == "too_wet":
         headline = f"{block.name} is wetter than the wine wants"
         state = (
-            f"That is {_pts(r['deviation'])} points below the wet edge of the band, and {TOO_WET_MEANS}."
+            f"That is {_pts(r['deviation'])} points below the wet edge of the band: {TOO_WET_MEANS}."
         )
     else:
         headline = f"{block.name} is on its glide path"
@@ -292,6 +326,8 @@ def _insight_block_status(block_id, subject_id, ctx):
 
 
 def _insight_score(block_id, subject_id, ctx):
+    """"Why is the priority score what it is?" Breaks the 70/30 now/forecast
+    blend down into its two components so the number isn't a black box."""
     block = _find_block(block_id, "score")
     ev = _evaluate(block, ctx)
     r = ev.response
@@ -316,7 +352,7 @@ def _insight_score(block_id, subject_id, ctx):
 
     headline = f"Why {block.name} scores {r['score']}"
     explanation = _join([
-        "The score is an attention ranking from 0 to 100, how urgently the block needs eyes, "
+        "The score is an attention ranking from 0 to 100: how urgently the block needs eyes, "
         "not a grade for the wine.",
         f"It blends how far the block sits outside its moisture band today (70% of the score) with "
         f"where the forecast pushes it over the coming week (30%).",
@@ -337,6 +373,8 @@ def _insight_score(block_id, subject_id, ctx):
 
 
 def _insight_driver(block_id, subject_id, ctx):
+    """Explain one named driver (e.g. et0_7d) for one block: what it measures,
+    why it matters, and its current pressure reading."""
     block = _find_block(block_id, "driver")
     if not subject_id:
         raise InvalidRequest("subject_id (driver key, e.g. 'et0_7d') is required for subject_type 'driver'")
@@ -368,6 +406,9 @@ def _insight_driver(block_id, subject_id, ctx):
 
 
 def _insight_mswp(block_id, subject_id, ctx):
+    """Explain the modelled MSWP (pressure-bomb equivalent) reading: what a
+    pressure bomb physically measures, and how today's modelled value compares
+    to the stage/style target so a grower can sanity-check it against a real reading."""
     block = _find_block(block_id, "mswp")
     ev = _evaluate(block, ctx)
     r = ev.response
@@ -377,12 +418,12 @@ def _insight_mswp(block_id, subject_id, ctx):
     if mpa < b_lo:
         position = (
             f"more negative than the target, so the vines are pulling harder than the style "
-            f"wants, and {TOO_DRY_MEANS}"
+            f"wants: {TOO_DRY_MEANS}"
         )
     elif mpa > b_hi:
         position = (
             f"less negative than the target, so the vines are more comfortable than the style "
-            f"wants, and {TOO_WET_MEANS}"
+            f"wants: {TOO_WET_MEANS}"
         )
     else:
         position = "inside the target range, so the vines carry the working thirst the wine style asks for"
@@ -409,27 +450,30 @@ def _insight_mswp(block_id, subject_id, ctx):
 
 
 def _insight_glide_path(block_id, subject_id, ctx):
+    """Explain the target depletion band itself for a block's current stage:
+    what the glide path is, why it moves through the season, and how this
+    block's wine style shapes where it sits within it."""
     block = _find_block(block_id, "glide_path")
     ev = _evaluate(block, ctx)
     r = ev.response
     lo, hi = r["target_band"]
 
     style_line = {
-        "premium_red": "as a premium red, this block is flown the driest of all, deep concentration is the whole point",
+        "premium_red": "as a premium red, this block is flown the driest of all: deep concentration is the whole point",
         "red": "as a red, it is pushed into a real deficit through ripening",
-        "white": "as a white, it is kept fresher than the reds, moderate thirst, never punishing",
+        "white": "as a white, it is kept fresher than the reds: moderate thirst, never punishing",
         "fresh_white": "as a fresh white, it is kept the most comfortable on the farm, because freshness needs an easy vine",
     }[block.wine_style]
 
     if r["status"] == "too_dry":
         now_line = (
             f"Right now {block.name} sits at {_pct(r['depletion_fraction'])} of the tank used against a "
-            f"{_band_pct(lo, hi)} target, above the band, and {TOO_DRY_MEANS}."
+            f"{_band_pct(lo, hi)} target, above the band, where {TOO_DRY_MEANS}."
         )
     elif r["status"] == "too_wet":
         now_line = (
             f"Right now {block.name} sits at {_pct(r['depletion_fraction'])} of the tank used against a "
-            f"{_band_pct(lo, hi)} target, below the band, and {TOO_WET_MEANS}."
+            f"{_band_pct(lo, hi)} target, below the band, where {TOO_WET_MEANS}."
         )
     else:
         now_line = (
@@ -463,6 +507,9 @@ def _insight_glide_path(block_id, subject_id, ctx):
 
 
 def _insight_pour_slip(block_id, subject_id, ctx):
+    """Explain tonight's watering order (or, for a too-wet block, why the
+    answer is to hold): the reasoning behind the pour slip's numbers, not just
+    the numbers themselves."""
     block = _find_block(block_id, "pour_slip")
     ev = _evaluate(block, ctx)
     r = ev.response
@@ -528,6 +575,9 @@ def _insight_pour_slip(block_id, subject_id, ctx):
 
 
 def _battle_plan_for(ctx):
+    """Re-run the battle plan for the client-supplied (or default) hours/horizon,
+    shared by the battle_plan_entry and battle_plan_skip builders so both explain
+    the same plan run rather than two independently-generated ones."""
     evaluations = evaluate_all(ctx["as_of"], ctx["provider"])
     hours = _ctx_float(ctx, "available_hours_per_day", 6.0, 0.5, 24.0)
     horizon = _ctx_int(ctx, "horizon_days", 3, 1, 14)
@@ -536,6 +586,10 @@ def _battle_plan_for(ctx):
 
 
 def _insight_battle_plan_entry(block_id, subject_id, ctx):
+    """"Why did this block get watered, on this day, for this long?" Explains
+    one scheduled entry from the battle plan in terms of its priority ranking.
+    Raises 404 with a pointer to battle_plan_skip if the block was skipped
+    instead of scheduled, rather than a bare "not found"."""
     bid = subject_id or block_id
     if not bid:
         raise InvalidRequest("subject_id (block id) is required for subject_type 'battle_plan_entry'")
@@ -559,13 +613,13 @@ def _insight_battle_plan_entry(block_id, subject_id, ctx):
         skip = next((s for s in plan["skipped"] if s["block_id"] == bid), None)
         if skip:
             raise SubjectNotFound(
-                f"block '{bid}' is not scheduled, it was skipped: {skip['reason']} "
+                f"block '{bid}' is not scheduled because it was skipped: {skip['reason']} "
                 f"(ask subject_type 'battle_plan_skip')"
             )
         raise SubjectNotFound(
             f"block '{bid}' has no battle-plan entry"
             + (f" on {want_day}" if want_day else "")
-            + ", it is already at or under its band midpoint"
+            + " because it is already at or under its band midpoint"
         )
 
     day_iso, entry = hit
@@ -598,6 +652,9 @@ def _insight_battle_plan_entry(block_id, subject_id, ctx):
 
 
 def _insight_battle_plan_skip(block_id, subject_id, ctx):
+    """"Why didn't this block get watered?" Two distinct reasons a block can be
+    skipped (already too wet, or rain closes the deficit on its own) get
+    different headlines and explanations."""
     bid = subject_id or block_id
     if not bid:
         raise InvalidRequest("subject_id (block id) is required for subject_type 'battle_plan_skip'")
@@ -647,6 +704,9 @@ def _insight_battle_plan_skip(block_id, subject_id, ctx):
 
 
 def _insight_season_bank(block_id, subject_id, ctx):
+    """"Will the dam last the season?" Farm-wide (not per-block) explanation of
+    the season bank verdict, with a concrete lever (which block or move saves
+    the most water) named whichever way the verdict falls."""
     remaining = _ctx_float(ctx, "remaining_m3", 12000.0, 0.0, 10_000_000.0)
     inputs = season_bank_inputs(ctx["as_of"], ctx["provider"])
     kc = kc_curves()
@@ -716,6 +776,10 @@ def _insight_season_bank(block_id, subject_id, ctx):
 
 
 def _insight_backtest_event(block_id, subject_id, ctx):
+    """Explain one detected heat-spike event from the backtest replay: which
+    blocks were flagged ahead of time, and how much lead time the engine's
+    forward projection actually gave, framed honestly as a replay rather than
+    a claim of foresight."""
     if not subject_id:
         raise InvalidRequest("subject_id (event date, YYYY-MM-DD) is required for subject_type 'backtest_event'")
     months = _ctx_int(ctx, "months", 4, 1, 12)
@@ -761,6 +825,9 @@ def _insight_backtest_event(block_id, subject_id, ctx):
 
 
 def _insight_scenario_delta(block_id, subject_id, ctx):
+    """"What would a heatwave/drought/rain event/cool spell do to this block?"
+    Re-evaluates the block with perturbed forward weather and explains the
+    swing in score and projected depletion versus the unperturbed baseline."""
     block = _find_block(block_id, "scenario_delta")
     kind = str(subject_id or ctx.get("type") or "heatwave")
     if kind not in SCENARIO_KINDS:
@@ -789,9 +856,9 @@ def _insight_scenario_delta(block_id, subject_id, ctx):
             f"priority list by {delta} points"
         )
     elif delta < 0:
-        meaning = f"pressure eases, the score drops {abs(delta)} points and the block can wait its turn"
+        meaning = f"pressure eases: the score drops {abs(delta)} points and the block can wait its turn"
     else:
-        meaning = "the score barely moves, this block can ride the event out"
+        meaning = "the score barely moves, so this block can ride the event out"
 
     headline = f"{kind.replace('_', ' ').title()} would move {block.name} {delta:+d} points"
     explanation = _join([
@@ -816,6 +883,9 @@ def _insight_scenario_delta(block_id, subject_id, ctx):
 
 
 def _insight_photo_analysis(block_id, subject_id, ctx):
+    """Explain one canopy photo's analysis (by photo id, or the latest for a
+    block when no id is given) and whether it agrees with the water-balance
+    model's verdict, framed as corroboration rather than a standalone diagnosis."""
     record = None
     if subject_id:
         record = photo_record(subject_id)
@@ -857,6 +927,8 @@ def _insight_photo_analysis(block_id, subject_id, ctx):
 
 
 def _insight_term(block_id, subject_id, ctx):
+    """Look up one glossary term by id, term text, or any alias (case/punctuation
+    insensitive via _normalize_term) and return its plain-language definition."""
     if not subject_id:
         raise InvalidRequest("subject_id (the term to define) is required for subject_type 'term'")
     glossary = load_glossary()
@@ -881,6 +953,9 @@ def _insight_term(block_id, subject_id, ctx):
     return headline, explanation, facts, []
 
 
+# Dispatch table from subject_type to its builder, keyed exactly by the values
+# in VALID_SUBJECTS; build_insight uses this instead of an if/elif chain so
+# adding a new subject type is a one-line addition here plus a new builder.
 _BUILDERS = {
     "block_status": _insight_block_status,
     "score": _insight_score,
