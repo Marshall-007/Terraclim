@@ -1,0 +1,5 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vino">
+  <rect width="64" height="64" rx="14" fill="#6b2436"/>
+  <path d="M32 14c-8 11-13 18-13 25a13 13 0 1 0 26 0c0-7-5-14-13-25z" fill="#f4f1ea"/>
+  <path d="M22 38c3 4 6 6 10 6s7-2 10-6" stroke="#3f7d4e" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+</svg>

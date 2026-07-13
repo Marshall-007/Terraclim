@@ -1,0 +1,6 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vino">
+  <rect width="512" height="512" fill="#6b2436"/>
+  <path d="M256 148c-46 62-74 106-74 144a74 74 0 1 0 148 0c0-38-28-82-74-144z" fill="#f4f1ea"/>
+  <path d="M197 296c18 21 37 32 59 32s41-11 59-32" stroke="#3f7d4e" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <circle cx="256" cy="285" r="12" fill="#6b2436"/>
+</svg>
